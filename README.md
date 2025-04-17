@@ -33,7 +33,7 @@ The StarkPulse backend is built with NestJS, providing a robust, scalable API th
 
 - Node.js 18.0.0 or higher
 - PostgreSQL 14.0 or higher
-- npm or yarn
+- npm 
 - Git
 
 ### Installation
