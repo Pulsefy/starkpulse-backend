@@ -1,0 +1,30 @@
+export interface DatabaseConfig {
+    host: string;
+    port: number;
+    username: string;
+    password: string;
+    database: string;
+    synchronize: boolean;
+    logging: boolean;
+  }
+  
+  export interface JwtConfig {
+    secret: string;
+    expiresIn: string;
+  }
+  
+  export interface CryptoConfig {
+    apiKeys: {
+      coinMarketCap: string;
+      coinGecko: string;
+    };
+  }
+  
+  export interface AppConfig {
+    environment: string;
+    port: number;
+    database: DatabaseConfig;
+    jwt: JwtConfig;
+    crypto: CryptoConfig;
+  }
+  
