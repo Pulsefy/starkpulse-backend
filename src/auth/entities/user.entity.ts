@@ -1,5 +1,15 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, BeforeInsert, BeforeUpdate } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  BeforeInsert,
+  BeforeUpdate,
+  OneToMany,
+} from 'typeorm';
 import * as bcrypt from 'bcrypt';
+import { PortfolioSnapshot } from 'src/portfolio/entities/portfolio.entity';
 
 @Entity('users')
 export class User {
@@ -26,6 +36,9 @@ export class User {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @OneToMany(() => PortfolioSnapshot, (snapshot) => snapshot.user)
+  snapshots: PortfolioSnapshot[];
 
   @BeforeInsert()
   @BeforeUpdate()
