@@ -2,6 +2,11 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
+import {
+  calculateROI,
+  calculateVolatility,
+  calculateTimeWeightedReturn,
+} from './utils/performance-metrics';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PortfolioSnapshot } from './entities/portfolio.entity';
@@ -101,4 +106,42 @@ export class PortfolioService {
       throw new NotFoundException('Snapshot not found');
     return { message: 'Deleted successfully' };
   }
+
+  async getUserAnalytics(userId: string) {
+    const snapshots = await this.snapshotRepo.find({
+      where: { user: { id: userId } },
+      order: { createdAt: 'ASC' },
+    });
+  
+    if (!snapshots.length) throw new NotFoundException('No snapshots found');
+  
+    const values = snapshots.map((s) => s.totalValue);
+    const initial = values[0];
+    const latest = values[values.length - 1];
+  
+    const roi = calculateROI(initial, latest);
+    const volatility = calculateVolatility(values);
+    const twr = calculateTimeWeightedReturn(values);
+  
+    // Example benchmark (BTC)
+    const benchmark = {
+      name: 'Bitcoin',
+      roi: calculateROI(30000, 50000), // simulate BTC from $30k to $50k
+    };
+  
+    return {
+      userId,
+      dataPoints: snapshots.map((s) => ({
+        timestamp: s.createdAt,
+        value: s.totalValue,
+      })),
+      metrics: {
+        roi,
+        volatility,
+        timeWeightedReturn: twr,
+      },
+      benchmarkComparison: benchmark,
+    };
+  }
+  
 }

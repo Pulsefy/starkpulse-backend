@@ -23,4 +23,7 @@ export class PortfolioSnapshot {
 
   @CreateDateColumn()
   timestamp: Date;
+
+  @CreateDateColumn()
+  createdAt: Date;
 }

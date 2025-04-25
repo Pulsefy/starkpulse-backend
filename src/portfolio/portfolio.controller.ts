@@ -42,4 +42,10 @@ export class PortfolioController {
   remove(@Param('id') id: string) {
     return this.portfolioService.remove(+id);
   }
+
+  @Get('analytics/:userId')
+  getAnalytics(@Param('userId') userId: string) {
+  return this.portfolioService.getUserAnalytics(userId);
+}
+
 }
