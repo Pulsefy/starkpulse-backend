@@ -8,6 +8,9 @@ import { CreateTransactionNotificationDto } from './dto/create-transaction-notif
 import { UpdateNotificationPreferenceDto } from './dto/update-notification-preference.dto';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 
+type NotificationChannel = 'in_app' | 'email' | 'push';
+type NotificationHandler = () => Promise<void>;
+
 @Injectable()
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
@@ -32,59 +35,31 @@ export class NotificationsService {
   ) {
     const prefs = await this.getUserPreferences(userId);
 
-    const methods = [
-      {
-        enabled: prefs?.inApp,
-        type: 'in_app' as const,
-        handler: async () => {
-          // Emit socket event
-          this.eventEmitter.emit('notification.created', {
-            userId,
-            title: payload.title,
-            message: payload.message,
-            type: 'in_app',
-          });
-        },
-      },
-      {
-        enabled: prefs?.email,
-        type: 'email' as const,
-        handler: async () => {
-          // Send email implementation
-          this.logger.log(`Sending email notification to user ${userId}`);
-          // Implementation of email sending logic
-        },
-      },
-      {
-        enabled: prefs?.push,
-        type: 'push' as const,
-        handler: async () => {
-          // Push notification implementation
-          this.logger.log(`Sending push notification to user ${userId}`);
-          // Implementation of push notification logic
-        },
-      },
-    ];
+    // Currently only implementing in-app notifications
+    if (prefs?.inApp) {
+      try {
+        // Emit socket event
+        this.eventEmitter.emit('notification.created', {
+          userId,
+          title: payload.title,
+          message: payload.message,
+          type: 'in_app',
+        });
 
-    for (const method of methods) {
-      if (method.enabled) {
-        try {
-          await method.handler();
-          await this.notificationRepo.save({
-            user: { id: userId } as any,
-            title: payload.title,
-            message: payload.message,
-            metadata: payload.metadata,
-            channel: method.type,
-            read: false,
-            userId: userId,
-          });
-        } catch (err) {
-          this.logger.error(
-            `Failed ${method.type} notification for user ${userId}:`,
-            err,
-          );
-        }
+        await this.notificationRepo.save({
+          user: { id: userId } as any,
+          title: payload.title,
+          message: payload.message,
+          metadata: payload.metadata,
+          channel: 'in_app',
+          read: false,
+          userId: userId,
+        });
+      } catch (err) {
+        this.logger.error(
+          `Failed in_app notification for user ${userId}:`,
+          err,
+        );
       }
     }
   }
@@ -110,68 +85,35 @@ export class NotificationsService {
       return;
     }
 
-    const methods = [
-      {
-        enabled: prefs?.inApp,
-        type: 'in_app' as const,
-        handler: async () => {
-          // Emit socket event for in-app notification
-          this.eventEmitter.emit('transaction.notification', {
-            userId,
-            transactionId: dto.transactionId,
-            title: dto.title,
-            message: dto.message,
-            eventType: dto.eventType,
-          });
-        },
-      },
-      {
-        enabled: prefs?.email,
-        type: 'email' as const,
-        handler: async () => {
-          // Send email implementation
-          this.logger.log(
-            `Sending transaction email notification to user ${userId}`,
-          );
-          // Implementation of email sending logic
-        },
-      },
-      {
-        enabled: prefs?.push,
-        type: 'push' as const,
-        handler: async () => {
-          // Push notification implementation
-          this.logger.log(
-            `Sending transaction push notification to user ${userId}`,
-          );
-          // Implementation of push notification logic
-        },
-      },
-    ];
+    // Currently only implementing in-app notifications
+    if (prefs?.inApp) {
+      try {
+        // Emit socket event for in-app notification
+        this.eventEmitter.emit('transaction.notification', {
+          userId,
+          transactionId: dto.transactionId,
+          title: dto.title,
+          message: dto.message,
+          eventType: dto.eventType,
+        });
 
-    for (const method of methods) {
-      if (method.enabled) {
-        try {
-          await method.handler();
-          await this.transactionNotificationRepo.save({
-            user: { id: userId } as any,
-            transaction: { id: dto.transactionId } as any,
-            title: dto.title,
-            message: dto.message,
-            metadata: dto.metadata,
-            channel: method.type,
-            eventType: dto.eventType,
-            read: false,
-            userId: userId,
-            transactionId: dto.transactionId,
-          });
-        } catch (err) {
-          this.logger.error(
-            `Failed ${method.type} transaction notification for user ${userId}:`,
-            err,
-          );
-          // Implement retry logic or queue mechanism here
-        }
+        await this.transactionNotificationRepo.save({
+          user: { id: userId } as any,
+          transaction: { id: dto.transactionId } as any,
+          title: dto.title,
+          message: dto.message,
+          metadata: dto.metadata,
+          channel: 'in_app',
+          eventType: dto.eventType,
+          read: false,
+          userId: userId,
+          transactionId: dto.transactionId,
+        });
+      } catch (err) {
+        this.logger.error(
+          `Failed in_app transaction notification for user ${userId}:`,
+          err,
+        );
       }
     }
   }
