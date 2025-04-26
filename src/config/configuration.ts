@@ -14,6 +14,10 @@ export default () => ({
       secret: process.env.JWT_SECRET || 'dev-secret-key',
       expiresIn: process.env.JWT_EXPIRES_IN || '1d',
     },
+    session: {
+      accessTokenExpiresIn: process.env.JWT_ACCESS_TOKEN_EXPIRES_IN || '1d',
+      refreshTokenExpiresIn: process.env.JWT_REFRESH_TOKEN_EXPIRES_IN || '3d',
+    },
     crypto: {
       apiKeys: {
         coinMarketCap: process.env.COIN_MARKET_CAP_API_KEY || '',

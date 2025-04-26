@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService as NestConfigService } from '@nestjs/config';
-import { DatabaseConfig, JwtConfig, CryptoConfig, AppConfig } from './interfaces/config.interface';
+import { DatabaseConfig, JwtConfig, CryptoConfig, AppConfig, SessionConfig } from './interfaces/config.interface';
 
 @Injectable()
 export class ConfigService {
@@ -46,6 +46,14 @@ export class ConfigService {
     const config = this.configService.get<JwtConfig>('jwt');
     if (!config) {
       throw new Error('JWT configuration is missing');
+    }
+    return config;
+  }
+
+  get sessionConfig(): SessionConfig {
+    const config = this.configService.get<SessionConfig>('session');
+    if (!config) {
+      throw new Error('Sesion configuration is missing');
     }
     return config;
   }
