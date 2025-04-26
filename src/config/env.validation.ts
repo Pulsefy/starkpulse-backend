@@ -14,6 +14,8 @@ export const validationSchema = Joi.object({
   DB_LOGGING: Joi.boolean().default(true),
   JWT_SECRET: Joi.string().required(),
   JWT_EXPIRES_IN: Joi.string().default('1d'),
+  JWT_ACCESS_TOKEN_EXPIRES_IN: Joi.string().default('1d'),
+  JWT_REFRESH_TOKEN_EXPIRES_IN: Joi.string().default('1d'),
   COIN_MARKET_CAP_API_KEY: Joi.string().optional(),
   COIN_GECKO_API_KEY: Joi.string().optional(),
 });
