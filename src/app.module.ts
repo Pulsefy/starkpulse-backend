@@ -4,6 +4,7 @@ import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './health/health.module';
 import { AuthModule } from './auth/auth.module';
 import { RequestLoggerMiddleware } from './common/middleware/request-logger.middleware';
+import { PreferencesModule } from './preferences/module/preferences.module';
 
 @Module({
   imports: [
@@ -11,6 +12,7 @@ import { RequestLoggerMiddleware } from './common/middleware/request-logger.midd
     DatabaseModule,
     HealthModule,
     AuthModule,
+    PreferencesModule,
     // Add other modules here as needed
   ],
 })
@@ -19,4 +21,3 @@ export class AppModule implements NestModule {
     consumer.apply(RequestLoggerMiddleware).forRoutes('*');
   }
 }
-
