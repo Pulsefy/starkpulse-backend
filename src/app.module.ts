@@ -10,6 +10,8 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { BlockchainModule } from './blockchain/blockchain.module';
 import { PriceModule } from './price/price.module';
 import { ScheduleModule } from '@nestjs/schedule';
+import { NotificationsModule } from './notifications/notifications.module';
+import { TransactionsModule } from './transactions/transactions.module';
 
 @Module({
   imports: [
@@ -23,6 +25,8 @@ import { ScheduleModule } from '@nestjs/schedule';
     AnalyticsModule,
     BlockchainModule,
     PriceModule,
+    NotificationsModule,
+    TransactionsModule,
     // Add other modules here as needed
   ],
 })
