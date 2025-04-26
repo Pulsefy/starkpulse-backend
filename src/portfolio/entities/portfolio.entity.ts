@@ -1,3 +1,4 @@
+
 import { User } from 'src/auth/entities/user.entity';
 import {
   Entity,
@@ -27,3 +28,4 @@ export class PortfolioSnapshot {
   @CreateDateColumn()
   createdAt: Date;
 }
+

@@ -1,3 +1,4 @@
+
 import { IsNumber, IsObject, IsString } from 'class-validator';
 
 export class CreatePortfolioDto {
@@ -10,3 +11,4 @@ export class CreatePortfolioDto {
   @IsObject()
   assetBreakdown: Record<string, number>;
 }
+

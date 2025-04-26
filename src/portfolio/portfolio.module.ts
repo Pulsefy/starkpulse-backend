@@ -1,13 +1,31 @@
 import { Module } from '@nestjs/common';
-import { PortfolioService } from './portfolio.service';
-import { PortfolioController } from './portfolio.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { PortfolioSnapshot } from './entities/portfolio.entity';
+import { PortfolioAsset } from './entities/portfolio-asset.entity';
+import { PortfolioSnapshot } from './entities/portfolio-snapshot.entity';
+import { PortfolioService } from './services/portfolio.service';
+import { PortfolioGateway } from './gateways/portfolio.gateway';
+import { PriceModule } from '../price/price.module';
+import { JwtModule } from '@nestjs/jwt';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { PortfolioController } from './portfolio.controller';
+import { BlockchainModule } from 'src/blockchain/blockchain.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([PortfolioSnapshot])],
+  imports: [
+    TypeOrmModule.forFeature([PortfolioAsset, PortfolioSnapshot]),
+    BlockchainModule,
+    PriceModule,
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        secret: configService.get<string>('JWT_SECRET'),
+        signOptions: { expiresIn: '7d' },
+      }),
+    }),
+  ],
   controllers: [PortfolioController],
-  providers: [PortfolioService],
+  providers: [PortfolioService, PortfolioGateway],
   exports: [PortfolioService],
 })
 export class PortfolioModule {}
