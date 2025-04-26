@@ -1,6 +1,15 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, BeforeInsert, BeforeUpdate } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  BeforeInsert,
+  BeforeUpdate,
+  OneToMany,
+} from 'typeorm';
 import * as bcrypt from 'bcrypt';
-
+import { Notification } from 'src/notifications/entities/notification.entity';
 @Entity('users')
 export class User {
   @PrimaryGeneratedColumn('uuid')

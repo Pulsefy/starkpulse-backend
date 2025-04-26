@@ -4,6 +4,8 @@ import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './health/health.module';
 import { AuthModule } from './auth/auth.module';
 import { RequestLoggerMiddleware } from './common/middleware/request-logger.middleware';
+import { NotificationsModule } from './notifications/notifications.module';
+import { TransactionsModule } from './transactions/transactions.module';
 
 @Module({
   imports: [
@@ -11,6 +13,8 @@ import { RequestLoggerMiddleware } from './common/middleware/request-logger.midd
     DatabaseModule,
     HealthModule,
     AuthModule,
+    NotificationsModule,
+    TransactionsModule,
     // Add other modules here as needed
   ],
 })
