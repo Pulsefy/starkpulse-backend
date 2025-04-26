@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@nestjs/axios": "^4.0.0",
+    "@nestjs/bull": "^11.0.2",
     "@nestjs/common": "^11.1.0",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.1.0",
@@ -36,10 +37,13 @@
     "@nestjs/websockets": "^11.1.0",
     "axios": "^1.9.0",
     "bcrypt": "^5.1.1",
+    "bull": "^4.16.5",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
+    "ioredis": "^5.6.1",
     "joi": "^17.13.3",
     "nest-winston": "^1.10.2",
+    "nodemailer": "^6.10.1",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "passport-local": "^1.0.0",
@@ -51,6 +55,7 @@
     "swagger-ui-express": "^5.0.1",
     "typeorm": "^0.3.22",
     "ua-parser-js": "^2.0.3",
+    "web-push": "^3.6.7",
     "winston": "^3.17.0"
   },
   "devDependencies": {
