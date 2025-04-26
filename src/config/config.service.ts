@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService as NestConfigService } from '@nestjs/config';
-import { DatabaseConfig, JwtConfig, CryptoConfig, AppConfig } from './interfaces/config.interface';
+import { DatabaseConfig, JwtConfig, CryptoConfig, StarknetConfig, AppConfig } from './interfaces/config.interface';
 
 @Injectable()
 export class ConfigService {
@@ -54,6 +54,14 @@ export class ConfigService {
     const config = this.configService.get<CryptoConfig>('crypto');
     if (!config) {
       throw new Error('Crypto configuration is missing');
+    }
+    return config;
+  }
+
+  get starknetConfig(): StarknetConfig {
+    const config = this.configService.get<StarknetConfig>('starknet');
+    if (!config) {
+      throw new Error('Starknet configuration is missing');
     }
     return config;
   }

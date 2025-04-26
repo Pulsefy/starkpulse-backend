@@ -20,4 +20,9 @@ export default () => ({
         coinGecko: process.env.COIN_GECKO_API_KEY || '',
       },
     },
+    starknet: {
+      providerUrl: process.env.STARKNET_PROVIDER_URL || 'https://alpha-mainnet.starknet.io',
+      network: process.env.STARKNET_NETWORK || 'mainnet',
+      pollingIntervalMs: parseInt(process.env.STARKNET_POLLING_INTERVAL_MS || '10000', 10),
+    },
   });

@@ -19,7 +19,7 @@ async function bootstrap() {
   // Global prefix for all routes
   app.setGlobalPrefix('api');
   
-  // Enable CORS
+  // Enable CORS for frontend
   app.enableCors();
   
   // Global validation pipes

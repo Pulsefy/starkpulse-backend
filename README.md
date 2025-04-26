@@ -15,6 +15,41 @@ The StarkPulse backend is built with NestJS, providing a robust, scalable API th
 - **Portfolio Management** 📊: Stores and analyzes user portfolio data
 - **User Authentication** 🔐: Secure user authentication with wallet integration
 - **Webhook Notifications** 🔔: Real-time notifications for blockchain events
+- **Contract Event Monitoring** 📡: Listens to and processes StarkNet smart contract events
+
+## Event Monitoring System
+
+The StarkPulse backend includes a powerful contract event monitoring system that listens for and processes events from StarkNet smart contracts. This system enables real-time updates and data synchronization with the blockchain.
+
+### Features:
+
+- **Contract Event Listener**: Monitors StarkNet blockchain for contract events
+- **Event Filtering**: Ability to filter events by contract address and event type
+- **Event Processing Pipeline**: Robust system to process events as they are received
+- **Event Storage & Indexing**: Secures event data in PostgreSQL with efficient indexing
+- **API Endpoints**: Comprehensive endpoints for retrieving and managing event data
+- **Event-Triggered Actions**: Flexible system for triggering actions based on specific events
+
+### API Endpoints:
+
+- `GET /api/blockchain/events/contracts`: Get all registered contracts
+- `POST /api/blockchain/events/contracts`: Register a new contract to monitor
+- `GET /api/blockchain/events/contracts/:id`: Get a specific contract details
+- `PUT /api/blockchain/events/contracts/:id`: Update contract monitoring settings
+- `DELETE /api/blockchain/events/contracts/:id`: Remove a contract from monitoring
+- `GET /api/blockchain/events/list`: Get contract events with filtering options
+- `GET /api/blockchain/events/:id`: Get a specific event details
+- `POST /api/blockchain/events/contracts/:id/sync`: Manually sync events for a contract
+- `POST /api/blockchain/events/process-pending`: Process pending events
+
+### Configuration:
+
+```
+# StarkNet Configuration in .env
+STARKNET_PROVIDER_URL=https://alpha-mainnet.starknet.io
+STARKNET_NETWORK=mainnet
+STARKNET_POLLING_INTERVAL_MS=10000
+```
 
 ## Tech Stack
 
@@ -94,8 +129,13 @@ src/
 │   ├── blockchain.module.ts
 │   ├── services/
 │   │   ├── starknet.service.ts  # RPC connection
+│   │   ├── event-listener.service.ts # Event monitoring
+│   │   ├── event-processor.service.ts # Event processing
 │   │   └── wallet.service.ts    # Wallet operations
-│   └── dto/
+│   ├── events/                  # Event controllers
+│   ├── entities/                # Blockchain entities
+│   ├── interfaces/              # Type interfaces
+│   └── dto/                     # Data transfer objects
 ├── common/                      # Shared resources
 │   ├── decorators/
 │   ├── filters/                 # Exception filters
@@ -118,6 +158,7 @@ The API provides the following main endpoint groups:
 - **/api/portfolio**: Portfolio tracking and analytics
 - **/api/transactions**: Transaction monitoring and history
 - **/api/blockchain**: StarkNet blockchain interaction
+- **/api/blockchain/events**: Contract event monitoring and processing
 
 Detailed API documentation is available via Swagger at `/api/docs` when the server is running.
 
@@ -129,6 +170,8 @@ The application uses PostgreSQL with the following main entities:
 - **News**: Aggregated news articles and metadata
 - **Portfolios**: User portfolio data and historical snapshots
 - **Transactions**: Blockchain transaction records
+- **Contracts**: Smart contract configurations for monitoring
+- **Contract Events**: Events emitted by monitored contracts
 - **Notifications**: User notification preferences and history
 
 ## Environment Variables
@@ -154,6 +197,7 @@ JWT_EXPIRATION=1d
 # StarkNet
 STARKNET_PROVIDER_URL=https://alpha-mainnet.starknet.io
 STARKNET_NETWORK=mainnet
+STARKNET_POLLING_INTERVAL_MS=10000
 
 # News API Keys
 NEWS_API_KEY=your_news_api_key
