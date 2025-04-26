@@ -5,10 +5,10 @@ import {
   Controller,
   Get,
   Post,
-  // Body,
-  // Patch,
-  // Param,
-  // Delete,
+  Body,
+  Patch,
+  Param,
+  Delete,
   Query,
   Request,
 } from '@nestjs/common';
@@ -18,40 +18,13 @@ import {
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { PortfolioQueryDto } from './dto/portfolio-query.dto';
 import { PortfolioService } from './services/portfolio.service';
+import { CreatePortfolioDto } from './dto/create-portfolio.dto';
+import { UpdatePortfolioDto } from './dto/update-portfolio.dto';
 
 @ApiTags('portfolio')
 @Controller('api/portfolio')
-@Controller('portfolio')
 export class PortfolioController {
   constructor(private readonly portfolioService: PortfolioService) {}
-
-  // @Post()
-  // create(@Body() createPortfolioDto: CreatePortfolioDto) {
-  //   return this.portfolioService.create(createPortfolioDto);
-  // }
-
-  // @Get()
-  // findAll() {
-  //   return this.portfolioService.findAll();
-  // }
-
-  // @Get(':id')
-  // findOne(@Param('id') id: string) {
-  //   return this.portfolioService.findOne(+id);
-  // }
-
-  // @Patch(':id')
-  // update(
-  //   @Param('id') id: string,
-  //   @Body() updatePortfolioDto: UpdatePortfolioDto,
-  // ) {
-  //   return this.portfolioService.update(+id, updatePortfolioDto);
-  // }
-
-  // @Delete(':id')
-  // remove(@Param('id') id: string) {
-  //   return this.portfolioService.remove(+id);
-  // }
 
   @Get()
   @ApiOperation({ summary: 'Get user portfolio assets' })
@@ -82,4 +55,10 @@ export class PortfolioController {
     const userId = req.user.id;
     return this.portfolioService.getPortfolioHistory(userId, days);
   }
+
+ @Get('analytics/:userId')
+  getAnalytics(@Param('userId') userId: string) {
+  return this.portfolioService.getUserAnalytics(userId);
+}
+
 }

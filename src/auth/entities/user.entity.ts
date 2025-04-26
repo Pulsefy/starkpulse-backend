@@ -9,6 +9,7 @@ import {
   OneToMany,
 } from 'typeorm';
 import * as bcrypt from 'bcrypt';
+import { PortfolioSnapshot } from 'src/portfolio/entities/portfolio.entity';
 import { PortfolioAsset } from 'src/portfolio/entities/portfolio-asset.entity';
 
 @Entity('users')
@@ -42,6 +43,9 @@ export class User {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @OneToMany(() => PortfolioSnapshot, (snapshot) => snapshot.user)
+  snapshots: PortfolioSnapshot[];
 
   @BeforeInsert()
   @BeforeUpdate()
