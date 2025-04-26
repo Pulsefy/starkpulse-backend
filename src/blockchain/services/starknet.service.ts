@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '../../config/config.service';
+import { ConfigService } from '@nestjs/config';
 import { Provider, RpcProvider, constants } from 'starknet';
 import { StarknetEmittedEvent, EventFilter } from '../interfaces/starknet-event.interface';
 
@@ -14,10 +14,13 @@ export class StarknetService {
 
   private initializeProvider(): void {
     try {
-      const { providerUrl, network } = this.configService.starknetConfig;
+      const providerUrl = this.configService.get<string>('STARKNET_NODE_URL');
+      const network = this.configService.get<string>('STARKNET_NETWORK', 'testnet');
       this.provider = new RpcProvider({
         nodeUrl: providerUrl,
-        chainId: network === 'mainnet' ? constants.StarknetChainId.SN_MAIN : constants.StarknetChainId.SN_GOERLI,
+        chainId: network === 'mainnet'
+          ? constants.StarknetChainId.SN_MAIN
+          : constants.StarknetChainId.SN_GOERLI,
       });
       this.logger.log(`StarkNet provider initialized for ${network}`);
     } catch (error) {
@@ -97,4 +100,48 @@ export class StarknetService {
     
     return events;
   }
-} 
+
+  getUserTokens(walletAddress: string) {
+    this.logger.log(`Getting tokens for wallet ${walletAddress}`);
+    try {
+      // Mock implementation
+      return [
+        {
+          address: '0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7',
+          name: 'Ether',
+          symbol: 'ETH',
+          decimals: 18,
+          balance: '1000000000000000000', // 1 ETH
+          logoURI: 'https://ethereum.org/eth-logo.svg',
+        },
+      ];
+    } catch (error) {
+      this.logger.error(`Error getting tokens for wallet ${walletAddress}`, error);
+      throw error;
+    }
+  }
+
+  getUserNfts(walletAddress: string) {
+    this.logger.log(`Getting NFTs for wallet ${walletAddress}`);
+    try {
+      // Mock implementation
+      return [
+        {
+          contractAddress: '0x123abc...',
+          tokenId: '1',
+          name: 'Example NFT',
+          imageUrl: 'https://example.com/nft.png',
+          metadata: {
+            attributes: [
+              { trait_type: 'Background', value: 'Blue' },
+              { trait_type: 'Rarity', value: 'Rare' },
+            ],
+          },
+        },
+      ];
+    } catch (error) {
+      this.logger.error(`Error getting NFTs for wallet ${walletAddress}`, error);
+      throw error;
+    }
+  }
+}
