@@ -2,6 +2,7 @@ import {
   Injectable,
   UnauthorizedException,
   BadRequestException,
+  OnModuleDestroy,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan } from 'typeorm';
@@ -14,7 +15,8 @@ import { UAParser } from 'ua-parser-js';
 import { User } from '../auth/entities/user.entity';
 
 @Injectable()
-export class SessionService {
+export class SessionService  implements OnModuleDestroy {
+  private cleanupInterval: NodeJS.Timeout;
   constructor(
     @InjectRepository(Session)
     private sessionRepository: Repository<Session>,
@@ -267,5 +269,11 @@ export class SessionService {
   private generateDeviceFingerprint(deviceInfo: Session['deviceInfo']): string {
     const fingerprintData = `${deviceInfo.browser}|${deviceInfo.os}|${deviceInfo.ip}`;
     return crypto.createHash('sha256').update(fingerprintData).digest('hex');
+  }
+
+  onModuleDestroy() {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+    }
   }
 }

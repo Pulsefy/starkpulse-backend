@@ -1,8 +1,8 @@
 import { Controller, Get, Post, Delete, Param, UseGuards, Req, HttpCode, HttpStatus, Res } from '@nestjs/common';
 import { SessionService } from './session.service';
 import { Request, Response } from 'express';
-import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guards';
-import { GetUser } from 'src/auth/decorator/get-user.decorator';
+import { GetUser } from '../auth/decorator/get-user.decorator';
+import { JwtAuthGuard } from "../auth/guards/jwt-auth.guards"
 
 @Controller('sessions')
 export class SessionController {
