@@ -1,0 +1,8 @@
+Hello {{user_name}},
+
+You have a new notification: 
+
+{{content}}
+
+Thank you,
+StarkPulse Team
