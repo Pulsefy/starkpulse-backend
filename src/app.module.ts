@@ -4,13 +4,21 @@ import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './health/health.module';
 import { AuthModule } from './auth/auth.module';
 import { RequestLoggerMiddleware } from './common/middleware/request-logger.middleware';
+import { PortfolioModule } from './portfolio/portfolio.module';
+import { BlockchainModule } from './blockchain/blockchain.module';
+import { PriceModule } from './price/price.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     ConfigModule,
     DatabaseModule,
     HealthModule,
     AuthModule,
+    PortfolioModule,
+    BlockchainModule,
+    PriceModule,
     // Add other modules here as needed
   ],
 })
@@ -19,4 +27,3 @@ export class AppModule implements NestModule {
     consumer.apply(RequestLoggerMiddleware).forRoutes('*');
   }
 }
-
