@@ -19,6 +19,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { NotificationsModule } from './notifications/notifications.module';
 import { TransactionsModule } from './transactions/transactions.module';
 
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { TransactionsModule } from './transactions/transactions.module';
 
     NotificationsModule,
     TransactionsModule,
+    UsersModule,
 
     // Add other modules here as needed
   ],

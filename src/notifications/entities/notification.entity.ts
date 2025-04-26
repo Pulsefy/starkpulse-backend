@@ -1,3 +1,4 @@
+import { User } from 'src/users/users.entity';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -7,7 +8,6 @@ import {
   JoinColumn,
   OneToOne,
 } from 'typeorm';
-import { User } from 'src/auth/entities/user.entity';
 
 @Entity()
 export class Notification {
@@ -17,8 +17,11 @@ export class Notification {
   @Column()
   title: string;
 
-  @Column('text')
-  message: string;
+  @Column()
+  content: string;
+
+  @Column()
+  pushSubscription: string;
 
   @Column({ type: 'jsonb', nullable: true })
   metadata: any;
@@ -31,6 +34,16 @@ export class Notification {
 
   @CreateDateColumn()
   createdAt: Date;
+
+  @ManyToOne(() => User)
+  user: User;
+
   @Column()
-  userId: string;
+  type: 'IN_APP' | 'EMAIL' | 'PUSH';
+
+  @Column({ default: 'PENDING' })
+  status: 'PENDING' | 'SENT' | 'FAILED' | 'RETRYING';
+
+  @Column({ default: 0 })
+  retryCount: number;
 }
