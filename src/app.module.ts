@@ -1,5 +1,5 @@
 import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
-import { ConfigModule } from './config/config.module';
+import { ConfigModule } from '@nestjs/config'; // ✅ Use official NestJS ConfigModule
 import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './health/health.module';
 import { AuthModule } from './auth/auth.module';
@@ -13,11 +13,12 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { NotificationsModule } from './notifications/notifications.module';
 import { TransactionsModule } from './transactions/transactions.module';
 import { RpcModule } from './rpc/rpc.module';
+// import { ConfigModule } from './config/config.module'; // ✅ if you still have your custom config service
 
 @Module({
   imports: [
     ScheduleModule.forRoot(),
-    ConfigModule,
+    ConfigModule.forRoot({ isGlobal: true }), // ✅ THIS ONE
     DatabaseModule,
     HealthModule,
     AuthModule,
@@ -29,7 +30,7 @@ import { RpcModule } from './rpc/rpc.module';
     NotificationsModule,
     TransactionsModule,
     RpcModule,
-    // Add other modules here as needed
+    ConfigModule, 
   ],
 })
 export class AppModule implements NestModule {
