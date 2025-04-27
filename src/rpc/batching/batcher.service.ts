@@ -1,51 +1,63 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { RpcConfig } from 'src/config/rpc.config';
 
-type RpcRequest = { id: number; method: string; params: any[]; resolve: Function; reject: Function };
+// Simple Priority Enum
+export enum RequestPriority {
+  HIGH = 1,
+  NORMAL = 2,
+  LOW = 3,
+}
+
+interface QueuedRequest {
+  payload: any;
+  priority: RequestPriority;
+  resolve: (value: any) => void;
+  reject: (reason?: any) => void;
+}
 
 @Injectable()
 export class BatcherService {
-  private queue: RpcRequest[] = [];
-  private batchingWindowMs = 10; // adjustable
-  private timer: NodeJS.Timeout | undefined;
+  private readonly logger = new Logger(BatcherService.name);
+  private queue: QueuedRequest[] = [];
+  private timer: NodeJS.Timeout;
 
-  constructor() {}
-
-  enqueueRequest(method: string, params: any[]): Promise<any> {
-    return new Promise((resolve, reject) => {
-      this.queue.push({ id: Date.now(), method, params, resolve, reject });
-      this.startTimer();
-    });
+  constructor() {
+    this.startBatching();
   }
 
-  private startTimer() {
-    if (!this.timer) {
-      this.timer = setTimeout(() => this.flushQueue(), this.batchingWindowMs);
-    }
+  private startBatching() {
+    this.timer = setInterval(() => this.flushQueue(), RpcConfig.BATCHING.batchingWindowMs);
   }
 
   private async flushQueue() {
-    const requests = this.queue.splice(0, this.queue.length);
-    clearTimeout(this.timer);
-    this.timer = undefined;
+    if (this.queue.length === 0) return;
 
-    // group the batched RPC calls
-    const payload = requests.map(r => ({ id: r.id, method: r.method, params: r.params, jsonrpc: '2.0' }));
+    // Sort the queue by priority (lower number = higher priority)
+    const sortedQueue = [...this.queue].sort((a, b) => a.priority - b.priority);
+    this.queue = []; // Clear queue before sending
+
+    const payloads = sortedQueue.map(q => q.payload);
 
     try {
-      // Send batched payload (inject your ConnectionPoolService here)
-      const rawResponse: { id: number; method: string; params: any[]; jsonrpc: string }[] = await /* connectionPoolService.post */ (process.env.RPC_URL, payload);
-      const response: { id: number; result: any }[] = rawResponse.map(r => ({ id: r.id, result: r.params[0] })); // Adjust transformation as needed
+      const responses = await this.sendBatchRequest(payloads);
 
-      for (const res of response) {
-        const matchingRequest = requests.find(r => r.id === res.id);
-        if (matchingRequest) {
-          matchingRequest.resolve(res.result);
-        }
-      }
+      responses.forEach((response, idx) => {
+        sortedQueue[idx].resolve(response);
+      });
     } catch (error) {
-      for (const req of requests) {
-        req.reject(error);
-      }
+      this.logger.error('Batch request failed', error);
+      sortedQueue.forEach(req => req.reject(error));
     }
+  }
+
+  private async sendBatchRequest(payloads: any[]) {
+    // TODO: Replace with your real batch RPC sending logic
+    return payloads.map(p => ({ success: true, data: p }));
+  }
+
+  addRequest(payload: any, priority: RequestPriority = RequestPriority.NORMAL): Promise<any> {
+    return new Promise((resolve, reject) => {
+      this.queue.push({ payload, priority, resolve, reject });
+    });
   }
 }

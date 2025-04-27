@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConnectionPoolService } from '../connection-pool/connection-pool.service';
-import { BatcherService } from '../batching/batcher.service';
+import { BatcherService, RequestPriority } from '../batching/batcher.service'; // 👈 important
 import { CacheService } from '../caching/cache.service';
 import { RateLimiterService } from '../rate-limiter/rate-limiter.service';
 import { MonitoringService } from '../monitoring/monitoring.service';
@@ -15,7 +15,7 @@ export class RpcService {
     private readonly monitoring: MonitoringService,
   ) {}
 
-  async callRpcMethod(method: string, params: any[]): Promise<any> {
+  async callRpcMethod(method: string, params: any[], priority: RequestPriority = RequestPriority.NORMAL): Promise<any> {
     const cacheKey = `${method}:${JSON.stringify(params)}`;
     const cached = this.cache.get<any>(cacheKey);
     if (cached) {
@@ -26,7 +26,9 @@ export class RpcService {
 
     const start = Date.now();
     try {
-      const result = await this.rateLimiter.schedule(() => this.batcher.enqueueRequest(method, params));
+      const result = await this.rateLimiter.schedule(() => 
+        this.batcher.addRequest({ method, params }, priority) // 👈 fixed this
+      );
       const latency = Date.now() - start;
       this.monitoring.recordRequest(latency, true);
       this.cache.set(cacheKey, result);
