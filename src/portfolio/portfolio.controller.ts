@@ -56,9 +56,8 @@ export class PortfolioController {
     return this.portfolioService.getPortfolioHistory(userId, days);
   }
 
- @Get('analytics/:userId')
+  @Get('analytics/:userId')
   getAnalytics(@Param('userId') userId: string) {
-  return this.portfolioService.getUserAnalytics(userId);
-}
-
+    return this.portfolioService.getUserAnalytics(userId);
+  }
 }

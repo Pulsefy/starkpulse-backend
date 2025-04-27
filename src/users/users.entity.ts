@@ -1,4 +1,5 @@
-import { Column, Entity, PrimaryGeneratedColumn } from "typeorm";
+import { Transaction } from 'src/transactions/entities/transaction.entity';
+import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity()
 export class User {
@@ -6,7 +7,7 @@ export class User {
   id: string;
 
   @Column()
-  name: string
+  name: string;
 
   @Column()
   email: string;
@@ -22,4 +23,7 @@ export class User {
 
   @Column({ default: true })
   allowPush: boolean;
+
+  @OneToMany(() => User, (user) => user.transaction)
+  transaction: Transaction;
 }
