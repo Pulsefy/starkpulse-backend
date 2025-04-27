@@ -1,13 +1,20 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService as NestConfigService } from '@nestjs/config';
-import { DatabaseConfig, JwtConfig, CryptoConfig, AppConfig, SessionConfig } from './interfaces/config.interface';
+import {
+  DatabaseConfig,
+  JwtConfig,
+  CryptoConfig,
+  AppConfig,
+  SessionConfig,
+} from './interfaces/config.interface';
+import { StarkNetConfig } from './interfaces/starknet-config.interface';
 
 @Injectable()
 export class ConfigService {
   constructor(private configService: NestConfigService) {}
 
   get environment(): string {
-    const env = this.configService.get<string>('environment');
+    const env = this.configService.get<string>('NODE_ENV', 'development');
     if (!env) {
       throw new Error('Environment is not configured');
     }
@@ -15,7 +22,7 @@ export class ConfigService {
   }
 
   get port(): number {
-    const port = this.configService.get<number>('port');
+    const port = this.configService.get<number>('PORT', 3000);
     if (port === undefined) {
       throw new Error('Port is not configured');
     }
@@ -72,5 +79,56 @@ export class ConfigService {
       throw new Error(`${key} is not configured`);
     }
     return value;
+  }
+
+  get jwtSecret(): string {
+    const secret = this.configService.get<string>('JWT_SECRET');
+    if (!secret) {
+      throw new Error(
+        'JWT_SECRET is not configured. Please set this environment variable.',
+      );
+    }
+    return secret;
+  }
+
+  get jwtRefreshSecret(): string {
+    const secret = this.configService.get<string>('JWT_REFRESH_SECRET');
+    if (!secret) {
+      throw new Error(
+        'JWT_REFRESH_SECRET is not configured. Please set this environment variable.',
+      );
+    }
+    return secret;
+  }
+
+  get starknetConfig(): StarkNetConfig {
+    const network = this.configService.get<'mainnet' | 'testnet' | 'devnet'>(
+      'STARKNET_NETWORK',
+      'testnet',
+    );
+    const providerUrl = this.configService.get<string>('STARKNET_PROVIDER_URL');
+    const chainId = this.configService.get<string>('STARKNET_CHAIN_ID');
+
+    if (!providerUrl) {
+      throw new Error(
+        'STARKNET_PROVIDER_URL is not configured. Please set this environment variable.',
+      );
+    }
+
+    if (!chainId) {
+      throw new Error(
+        'STARKNET_CHAIN_ID is not configured. Please set this environment variable.',
+      );
+    }
+
+    return {
+      network,
+      providerUrl,
+      chainId,
+    };
+  }
+
+  get starknetNetwork(): string {
+    return this.starknetConfig.network;
   }
 }

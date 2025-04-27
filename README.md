@@ -1,6 +1,5 @@
 # StarkPulse Backend API
 
-
 This repository contains the backend API for StarkPulse, a decentralized crypto news aggregator and portfolio management platform built on the StarkNet ecosystem.
 
 ## Overview
@@ -33,34 +32,40 @@ The StarkPulse backend is built with NestJS, providing a robust, scalable API th
 
 - Node.js 18.0.0 or higher
 - PostgreSQL 14.0 or higher
-- npm 
+- npm
 - Git
 
 ### Installation
 
 1. Clone the repository:
+
 ```bash
 git clone https://github.com/Pulsefy/starkPulse-backend.git
 cd StarkPulse-API
 ```
 
 2. Install dependencies:
+
 ```bash
 npm install
 ```
 
 3. Set up environment variables:
+
 ```bash
 cp .env.example .env
 ```
+
 Edit the `.env` file with your configuration.
 
 4. Run database migrations:
+
 ```bash
 npm run migration:run
 ```
 
 5. Start the development server:
+
 ```bash
 npm run start:dev
 ```
@@ -207,9 +212,139 @@ We welcome contributions to StarkPulse! Please follow these steps:
 - Cedarich 👨‍💻
 - Divineifed1 👨‍💻
 
-
 ---
 
 <p align="center">
   Built with ❤️ by the StarkPulse Team
 </p>
+
+## Wallet Authentication System
+
+The StarkPulse backend implements a secure wallet-based authentication system using StarkNet and Argent X. This system allows users to authenticate using their StarkNet wallets through a secure signature-based process.
+
+### Authentication Flow
+
+1. **Wallet Connection**
+
+   ```typescript
+   GET / api / auth / wallet / connect;
+   ```
+
+   - Detects and connects to Argent X wallet
+   - Returns the connected wallet address
+
+2. **Nonce Generation**
+
+   ```typescript
+   POST /api/auth/wallet/nonce
+   {
+     "address": "0x123...abc"
+   }
+   ```
+
+   - Generates a unique nonce for signing
+   - Includes rate limiting and expiration
+   - Returns the nonce to be signed
+
+3. **Signature Verification**
+   ```typescript
+   POST /api/auth/wallet/verify
+   {
+     "address": "0x123...abc",
+     "signature": ["0x456...def", "0x789...ghi"],
+     "nonce": "0x..."
+   }
+   ```
+   - Verifies the wallet signature
+   - Creates or retrieves user profile
+   - Returns JWT tokens for API access
+
+### Security Features
+
+- **Nonce-based Authentication**
+
+  - Each nonce is unique and time-based
+  - Nonces expire after 5 minutes
+  - Used only once and cleaned up after verification
+
+- **Rate Limiting**
+
+  - Maximum 3 attempts per 15 minutes
+  - Prevents brute force attacks
+  - Auto-reset after cooldown period
+
+- **JWT Token Management**
+
+  - Access tokens (1 hour validity)
+  - Refresh tokens (7 days validity)
+  - Separate secrets for access and refresh tokens
+
+- **Error Handling**
+  - Graceful handling of connection failures
+  - Clear error messages for users
+  - Proper cleanup on failures
+
+### Protected Routes
+
+To protect API routes with wallet authentication:
+
+```typescript
+@UseGuards(WalletAuthGuard)
+@Get('protected-route')
+async protectedRoute(@Wallet() walletAddress: string) {
+  // Route implementation
+}
+```
+
+### Environment Variables
+
+```env
+JWT_SECRET=your_jwt_secret
+JWT_REFRESH_SECRET=your_refresh_token_secret
+STARKNET_NETWORK=testnet
+STARKNET_PROVIDER_URL=https://your-provider-url
+STARKNET_CHAIN_ID=SN_GOERLI
+```
+
+### Dependencies
+
+- `starknet`: ^5.19.5
+- `@nestjs/jwt`: ^11.0.0
+- `@nestjs/passport`: ^11.0.5
+
+### Development
+
+1. Install dependencies:
+
+   ```bash
+   npm install
+   ```
+
+2. Set up environment variables:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+3. Run the development server:
+   ```bash
+   npm run start:dev
+   ```
+
+### Testing
+
+```bash
+# Unit tests
+npm run test
+
+# E2E tests
+npm run test:e2e
+```
+
+### Security Considerations
+
+1. Always use HTTPS in production
+2. Keep JWT secrets secure and rotate regularly
+3. Monitor for unusual authentication patterns
+4. Regularly update dependencies
+5. Follow StarkNet security best practices
