@@ -13,6 +13,11 @@ export interface DatabaseConfig {
     expiresIn: string;
   }
   
+  export interface SessionConfig {
+    accessTokenExpiresIn: string;
+    refreshTokenExpiresIn: string;
+  }
+
   export interface CryptoConfig {
     apiKeys: {
       coinMarketCap: string;
