@@ -2,6 +2,9 @@ import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, ManyToMany, JoinTabl
 import { Category } from './category.entity';
 import { Tag } from './tag.entity';
 import { Author } from './author.entity';
+// import { Category } from './category.entity';
+// import { Tag } from './tag.entity';
+// import { Author } from './author.entity';
 
 @Entity()
 export class NewsArticle {
