@@ -8,18 +8,19 @@ export class StarknetService {
   private readonly logger = new Logger(StarknetService.name);
   private provider: Provider;
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(private configService: ConfigService) {
     this.initializeProvider();
   }
 
   private initializeProvider(): void {
     try {
       const providerUrl = this.configService.get<string>('STARKNET_NODE_URL');
-      const network = this.configService.get<string>('STARKNET_NETWORK');
-
+      const network = this.configService.get<string>('STARKNET_NETWORK', 'testnet');
       this.provider = new RpcProvider({
         nodeUrl: providerUrl,
-        chainId: network === 'mainnet' ? constants.StarknetChainId.SN_MAIN : constants.StarknetChainId.SN_GOERLI,
+        chainId: network === 'mainnet'
+          ? constants.StarknetChainId.SN_MAIN
+          : constants.StarknetChainId.SN_GOERLI,
       });
 
       this.logger.log(`StarkNet provider initialized for ${network}`);
@@ -145,5 +146,49 @@ export class StarknetService {
     }
 
     return events;
+  }
+
+  getUserTokens(walletAddress: string) {
+    this.logger.log(`Getting tokens for wallet ${walletAddress}`);
+    try {
+      // Mock implementation
+      return [
+        {
+          address: '0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7',
+          name: 'Ether',
+          symbol: 'ETH',
+          decimals: 18,
+          balance: '1000000000000000000', // 1 ETH
+          logoURI: 'https://ethereum.org/eth-logo.svg',
+        },
+      ];
+    } catch (error) {
+      this.logger.error(`Error getting tokens for wallet ${walletAddress}`, error);
+      throw error;
+    }
+  }
+
+  getUserNfts(walletAddress: string) {
+    this.logger.log(`Getting NFTs for wallet ${walletAddress}`);
+    try {
+      // Mock implementation
+      return [
+        {
+          contractAddress: '0x123abc...',
+          tokenId: '1',
+          name: 'Example NFT',
+          imageUrl: 'https://example.com/nft.png',
+          metadata: {
+            attributes: [
+              { trait_type: 'Background', value: 'Blue' },
+              { trait_type: 'Rarity', value: 'Rare' },
+            ],
+          },
+        },
+      ];
+    } catch (error) {
+      this.logger.error(`Error getting NFTs for wallet ${walletAddress}`, error);
+      throw error;
+    }
   }
 }
