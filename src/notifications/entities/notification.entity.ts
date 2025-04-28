@@ -1,4 +1,4 @@
-import { User } from 'src/users/users.entity';
+// src/notifications/entities/notification.entity.ts
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -6,8 +6,8 @@ import {
   CreateDateColumn,
   ManyToOne,
   JoinColumn,
-  OneToOne,
 } from 'typeorm';
+import { User } from 'src/users/users.entity';
 
 @Entity()
 export class Notification {
@@ -30,20 +30,21 @@ export class Notification {
   read: boolean;
 
   @Column()
-  channel: 'in_app' | 'email' | 'push';
-
-  @CreateDateColumn()
-  createdAt: Date;
-
-  @ManyToOne(() => User)
-  user: User;
-
-  @Column()
-  type: 'IN_APP' | 'EMAIL' | 'PUSH';
+  channel: 'in_app' | 'email' | 'push'; // keep only one, remove 'type'
 
   @Column({ default: 'PENDING' })
   status: 'PENDING' | 'SENT' | 'FAILED' | 'RETRYING';
 
   @Column({ default: 0 })
   retryCount: number;
+
+  @ManyToOne(() => User)
+  @JoinColumn({ name: "userId" }) // added JoinColumn
+  user: User;
+
+  @Column()
+  userId: string;
+
+  @CreateDateColumn()
+  createdAt: Date;
 }
