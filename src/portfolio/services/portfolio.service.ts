@@ -55,39 +55,25 @@ export class PortfolioService {
     for (const asset of assets) {
       const assetResponse = this.mapAssetToResponse(asset);
 
-      // Get price data for the asset if it's a token
       if (asset.assetType === AssetType.TOKEN && asset.decimals) {
         try {
-          const priceUsd = await this.priceService.getTokenPrice(
-            asset.assetAddress,
-          );
+          const priceUsd = await this.priceService.getTokenPrice(asset.assetAddress);
           const balanceDecimal = Number(asset.balance) / 10 ** asset.decimals;
           const valueUsd = (balanceDecimal * priceUsd).toString();
 
           assetResponse.valueUsd = valueUsd;
           totalValueUsd = (Number(totalValueUsd) + Number(valueUsd)).toString();
         } catch (error) {
-          this.logger.error(
-            `Failed to get price for token ${asset.assetAddress}`,
-            error,
-          );
+          this.logger.error(`Failed to get price for token ${asset.assetAddress}`, error.stack);
           assetResponse.valueUsd = '0';
         }
       } else if (asset.assetType === AssetType.NFT && asset.tokenId) {
         try {
-          const nftPrice = await this.priceService.getNftPrice(
-            asset.assetAddress,
-            asset.tokenId,
-          );
+          const nftPrice = await this.priceService.getNftPrice(asset.assetAddress, asset.tokenId);
           assetResponse.valueUsd = nftPrice?.toString() || '0';
-          totalValueUsd = (
-            Number(totalValueUsd) + Number(assetResponse.valueUsd)
-          ).toString();
+          totalValueUsd = (Number(totalValueUsd) + Number(assetResponse.valueUsd)).toString();
         } catch (error) {
-          this.logger.error(
-            `Failed to get price for NFT ${asset.assetAddress}:${asset.tokenId}`,
-            error,
-          );
+          this.logger.error(`Failed to get price for NFT ${asset.assetAddress}:${asset.tokenId}`, error.stack);
           assetResponse.valueUsd = '0';
         }
       }
@@ -95,11 +81,8 @@ export class PortfolioService {
       assetResponses.push(assetResponse);
     }
 
-    // Get the last updated timestamp
     const latestAsset = assets.reduce(
-      (latest, current) => {
-        return latest.lastUpdated > current.lastUpdated ? latest : current;
-      },
+      (latest, current) => (latest.lastUpdated > current.lastUpdated ? latest : current),
       assets[0] || { lastUpdated: new Date(0) },
     );
 
@@ -126,55 +109,33 @@ export class PortfolioService {
     };
   }
 
-  async syncUserPortfolio(
-    userId: string,
-    walletAddress: string,
-  ): Promise<void> {
-    this.logger.log(
-      `Syncing portfolio for user ${userId} with wallet ${walletAddress}`,
-    );
-
+  async syncUserPortfolio(userId: string, walletAddress: string): Promise<void> {
+    this.logger.log(`Syncing portfolio for user ${userId} with wallet ${walletAddress}`);
     try {
-      // Sync tokens
       await this.syncTokenBalances(userId, walletAddress);
-
-      // Sync NFTs
       await this.syncNftHoldings(userId, walletAddress);
-
-      // Create a portfolio snapshot
       await this.createPortfolioSnapshot(userId);
-
-      // Notify connected clients about the portfolio update
       this.notifyPortfolioUpdate(userId);
     } catch (error) {
-      this.logger.error(`Failed to sync portfolio for user ${userId}`, error);
+      this.logger.error(`Failed to sync portfolio for user ${userId}`, error.stack);
       throw error;
     }
   }
 
-  private async syncTokenBalances(
-    userId: string,
-    walletAddress: string,
-  ): Promise<void> {
-    // Get tokens on StarkNet for this wallet
-    const tokens = this.starknetService.getUserTokens(walletAddress);
+  private async syncTokenBalances(userId: string, walletAddress: string): Promise<void> {
+    this.logger.log(`Syncing token balances for user ${userId}`);
+    const tokens = await this.starknetService.getUserTokens(walletAddress);
 
     for (const token of tokens) {
       const existingAsset = await this.portfolioAssetRepository.findOne({
-        where: {
-          userId,
-          assetAddress: token.address,
-          assetType: AssetType.TOKEN,
-        },
+        where: { userId, assetAddress: token.address, assetType: AssetType.TOKEN },
       });
 
       if (existingAsset) {
-        // Update existing asset
         existingAsset.balance = token.balance;
         existingAsset.lastUpdated = new Date();
         await this.portfolioAssetRepository.save(existingAsset);
       } else {
-        // Create new asset
         const newAsset = this.portfolioAssetRepository.create({
           userId,
           assetAddress: token.address,
@@ -190,31 +151,22 @@ export class PortfolioService {
     }
   }
 
-  private async syncNftHoldings(
-    userId: string,
-    walletAddress: string,
-  ): Promise<void> {
-    // Get NFTs on StarkNet for this wallet
-    const nfts = this.starknetService.getUserNfts(walletAddress);
+  private async syncNftHoldings(userId: string, walletAddress: string): Promise<void> {
+    this.logger.log(`Syncing NFT holdings for user ${userId}`);
+    const nfts = await this.starknetService.getUserNfts(walletAddress);
 
     for (const nft of nfts) {
       const existingAsset = await this.portfolioAssetRepository.findOne({
-        where: {
-          userId,
-          assetAddress: nft.contractAddress,
-          tokenId: nft.tokenId,
-          assetType: AssetType.NFT,
-        },
+        where: { userId, assetAddress: nft.contractAddress, tokenId: nft.tokenId, assetType: AssetType.NFT },
       });
 
       if (!existingAsset) {
-        // Create new NFT asset
         const newAsset = this.portfolioAssetRepository.create({
           userId,
           assetAddress: nft.contractAddress,
           assetType: AssetType.NFT,
           tokenId: nft.tokenId,
-          balance: '1', // NFTs typically have a balance of 1
+          balance: '1',
           name: nft.name,
           imageUrl: nft.imageUrl,
           metadata: nft.metadata,
@@ -223,21 +175,14 @@ export class PortfolioService {
       }
     }
 
-    // Remove NFTs that are no longer owned
     const userNfts = await this.portfolioAssetRepository.find({
-      where: {
-        userId,
-        assetType: AssetType.NFT,
-      },
+      where: { userId, assetType: AssetType.NFT },
     });
 
     for (const userNft of userNfts) {
       const stillOwned = nfts.some(
-        (nft) =>
-          nft.contractAddress === userNft.assetAddress &&
-          nft.tokenId === userNft.tokenId,
+        (nft) => nft.contractAddress === userNft.assetAddress && nft.tokenId === userNft.tokenId,
       );
-
       if (!stillOwned) {
         await this.portfolioAssetRepository.remove(userNft);
       }
@@ -245,25 +190,28 @@ export class PortfolioService {
   }
 
   private async createPortfolioSnapshot(userId: string): Promise<void> {
+    this.logger.log(`Creating portfolio snapshot for user ${userId}`);
     const portfolio = await this.getUserPortfolio(userId, {});
 
     const snapshot = this.portfolioSnapshotRepository.create({
       userId,
       totalValueUsd: portfolio.totalValueUsd,
-      assetBreakdown: portfolio.assets.reduce(
-        (acc, asset) => {
-          acc[asset.assetAddress] = {
-            balance: asset.balance,
-            valueUsd: asset.valueUsd || '0',
-          };
-          return acc;
-        },
-        {} as Record<string, any>,
-      ),
+      assetBreakdown: portfolio.assets.reduce((acc, asset) => {
+        acc[asset.assetAddress] = {
+          balance: asset.balance,
+          valueUsd: asset.valueUsd || '0',
+        };
+        return acc;
+      }, {} as Record<string, any>),
       timestamp: new Date(),
     });
 
     await this.portfolioSnapshotRepository.save(snapshot);
+  }
+
+  private notifyPortfolioUpdate(userId: string): void {
+    this.logger.log(`Notifying user ${userId} about portfolio update`);
+    // TODO: Hook into WebSocket/Gateway/Notification system if available
   }
 
   async getPortfolioHistory(
@@ -274,13 +222,8 @@ export class PortfolioService {
     startDate.setDate(startDate.getDate() - days);
 
     const snapshots = await this.portfolioSnapshotRepository.find({
-      where: {
-        userId,
-        timestamp: MoreThanOrEqual(startDate),
-      },
-      order: {
-        timestamp: 'ASC',
-      },
+      where: { userId, timestamp: MoreThanOrEqual(startDate) },
+      order: { timestamp: 'ASC' },
     });
 
     return snapshots.map((snapshot) => ({
@@ -289,9 +232,14 @@ export class PortfolioService {
     }));
   }
 
-  private notifyPortfolioUpdate(userId: string): void {
-    // This will be implemented by the WebSocketGateway
-    // Skeleton implementation for now
-    this.logger.log(`Notifying user ${userId} about portfolio update`);
+  async getUserAnalytics(userId: string): Promise<any> {
+    this.logger.log(`Getting analytics for user ${userId}`);
+    const portfolio = await this.getUserPortfolio(userId, {});
+
+    return {
+      totalValueUsd: portfolio.totalValueUsd,
+      numberOfAssets: portfolio.assets.length,
+      lastUpdated: portfolio.lastUpdated,
+    };
   }
 }
