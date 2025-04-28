@@ -1,19 +1,19 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Notification } from './entities/notification.entity';
-import { TransactionNotification } from './entities/transaction-notification.entity';
-import { NotificationPreference } from './entities/notification-preference.entity';
-import { CreateTransactionNotificationDto } from './dto/create-transaction-notification.dto';
-import { UpdateNotificationPreferenceDto } from './dto/update-notification-preference.dto';
-import { EventEmitter2 } from '@nestjs/event-emitter';
-import { MailService } from './mail.service';
-import { PushService } from './push.service';
-import { InjectQueue } from '@nestjs/bull';
-import { Queue } from 'bull';
-
-type NotificationChannel = 'in_app' | 'email' | 'push';
-type NotificationHandler = () => Promise<void>;
+import { Injectable, Logger, NotFoundException } from "@nestjs/common"
+import { InjectRepository } from "@nestjs/typeorm"
+import type { Repository, FindOptionsWhere } from "typeorm"
+import type { EventEmitter2 } from "@nestjs/event-emitter"
+import { Notification } from "./entities/notification.entity"
+import { NotificationPreference } from "./entities/notification-preference.entity"
+import type { CreateNotificationDto } from "./dto/create-notification.dto"
+import type { UpdateNotificationDto } from "./dto/update-notification.dto"
+import type { UpdateNotificationPreferenceDto } from "./dto/update-notification-preference.dto"
+import type { NotificationQueryDto } from "./dto/notification-query.dto"
+import type { MailService } from "./mail.service"
+import type { PushService } from "./push.service"
+import { InjectQueue } from "@nestjs/bull"
+import type { Queue } from "bull"
+import { NotificationType } from "./enums/notificationType.enum"
+import { NotificationStatus } from "./enums/notificationStatus.enum"
 
 @Injectable()
 export class NotificationsService {
@@ -22,169 +22,179 @@ export class NotificationsService {
   constructor(
     @InjectRepository(Notification)
     private readonly notificationRepo: Repository<Notification>,
-    @InjectRepository(TransactionNotification)
-    private readonly transactionNotificationRepo: Repository<TransactionNotification>,
+
     @InjectRepository(NotificationPreference)
     private readonly prefRepo: Repository<NotificationPreference>,
-    private readonly eventEmitter: EventEmitter2,
 
+    private readonly eventEmitter: EventEmitter2,
     private readonly mailService: MailService,
     private readonly pushService: PushService,
-
-    @InjectQueue('notification-queue') private readonly queue: Queue,
+    
+    @InjectQueue('notification-queue') 
+    private readonly queue: Queue,
   ) {}
 
-  async dispatch(
-    userId: string,
-    payload: {
-      title: string;
-      message: string;
-      metadata?: any;
-    },
-  ) {
-    const prefs = await this.getUserPreferences(userId);
+  async create(createNotificationDto: CreateNotificationDto): Promise<Notification> {
+    const { userId, ...notificationData } = createNotificationDto
 
-    // Currently only implementing in-app notifications
-    if (prefs?.inApp) {
-      try {
-        // Emit socket event
-        this.eventEmitter.emit('notification.created', {
-          userId,
-          title: payload.title,
-          message: payload.message,
-          type: 'in_app',
-        });
+    // Check user preferences
+    const preferences = await this.getUserPreferences(userId)
 
-        await this.notificationRepo.save({
-          user: { id: userId } as any,
-          title: payload.title,
-          message: payload.message,
-          metadata: payload.metadata,
-          channel: 'in_app',
-          read: false,
-          userId: userId,
-        });
-      } catch (err) {
-        this.logger.error(
-          `Failed in_app notification for user ${userId}:`,
-          err,
-        );
-      }
+    // Determine if notification should be sent based on preferences
+    if (
+      !this.shouldSendNotification(
+        notificationData.type as NotificationType,
+        preferences,
+        notificationData.channel as "in_app" | "email" | "push",
+      )
+    ) {
+      this.logger.log(`Notification not sent due to user preferences: ${userId}, type: ${notificationData.type}`)
+      return null
+    }
+
+    // Create notification
+    const notification = this.notificationRepo.create({
+      ...notificationData,
+      userId,
+      expiresAt: notificationData.expiresAt ? new Date(notificationData.expiresAt) : null,
+    })
+
+    const savedNotification = await this.notificationRepo.save(notification)
+
+    // Emit event for real-time updates
+    this.eventEmitter.emit("notification.created", {
+      userId,
+      notification: savedNotification,
+    })
+
+    // Queue notification for delivery if it's email or push
+    if (notification.channel === "email" || notification.channel === "push") {
+      await this.queue.add(
+        "process-notification",
+        { notificationId: savedNotification.id },
+        {
+          attempts: 3,
+          backoff: {
+            type: "exponential",
+            delay: 5000,
+          },
+        },
+      )
+    }
+
+    return savedNotification
+  }
+
+  async findAll(userId: string, query: NotificationQueryDto): Promise<{ data: Notification[]; total: number }> {
+    const where: FindOptionsWhere<Notification> = { userId }
+
+    // Apply filters
+    if (query.type) {
+      where.type = query.type
+    }
+
+    if (query.read !== undefined) {
+      where.read = query.read
+    }
+
+    if (query.priority) {
+      where.priority = query.priority
+    }
+
+    // Apply search if provided
+    const queryBuilder = this.notificationRepo.createQueryBuilder("notification").where(where)
+
+    if (query.search) {
+      queryBuilder.andWhere("(notification.title ILIKE :search OR notification.content ILIKE :search)", {
+        search: `%${query.search}%`,
+      })
+    }
+
+    // Get total count
+    const total = await queryBuilder.getCount()
+
+    // Apply pagination
+    queryBuilder
+      .orderBy("notification.createdAt", "DESC")
+      .skip(query.offset || 0)
+      .take(query.limit || 10)
+
+    // Execute query
+    const data = await queryBuilder.getMany()
+
+    return { data, total }
+  }
+
+  async findOne(id: string, userId: string): Promise<Notification> {
+    return this.notificationRepo.findOne({
+      where: { id, userId },
+    })
+  }
+
+  async update(id: string, userId: string, updateNotificationDto: UpdateNotificationDto): Promise<Notification> {
+    const notification = await this.findOne(id, userId)
+
+    if (!notification) {
+      throw new NotFoundException(`Notification with ID ${id} not found`)
+    }
+
+    // Update notification
+    Object.assign(notification, updateNotificationDto)
+
+    return this.notificationRepo.save(notification)
+  }
+
+  async markAsRead(id: string, userId: string): Promise<Notification> {
+    const notification = await this.findOne(id, userId)
+
+    if (!notification) {
+      throw new NotFoundException(`Notification with ID ${id} not found`)
+    }
+
+    notification.read = true
+    return this.notificationRepo.save(notification)
+  }
+
+  async markAllAsRead(userId: string): Promise<number> {
+    const result = await this.notificationRepo.update({ userId, read: false }, { read: true })
+
+    return result.affected || 0
+  }
+
+  async remove(id: string, userId: string): Promise<void> {
+    const notification = await this.findOne(id, userId)
+
+    if (!notification) {
+      throw new NotFoundException(`Notification with ID ${id} not found`)
+    }
+
+    await this.notificationRepo.remove(notification)
+  }
+
+  async removeAllRead(userId: string): Promise<void> {
+    const readNotifications = await this.notificationRepo.find({
+      where: { userId, read: true },
+    })
+
+    if (readNotifications.length > 0) {
+      await this.notificationRepo.remove(readNotifications)
     }
   }
 
-  async dispatchTransactionNotification(dto: CreateTransactionNotificationDto) {
-    const userId = dto.userId;
-    const prefs = await this.getUserPreferences(userId);
-
-    // Check if user wants this type of transaction notification
-    let isEnabled = true;
-    if (dto.eventType === 'status_change') {
-      isEnabled = prefs?.transactionStatusChanges ?? true;
-    } else if (dto.eventType === 'error') {
-      isEnabled = prefs?.transactionErrors ?? true;
-    } else if (dto.eventType === 'confirmation') {
-      isEnabled = prefs?.transactionConfirmations ?? true;
-    }
-
-    if (!isEnabled) {
-      this.logger.log(
-        `User ${userId} has disabled ${dto.eventType} notifications`,
-      );
-      return;
-    }
-
-    // Currently only implementing in-app notifications
-    if (prefs?.inApp) {
-      try {
-        // Emit socket event for in-app notification
-        this.eventEmitter.emit('transaction.notification', {
-          userId,
-          transactionId: dto.transactionId,
-          title: dto.title,
-          message: dto.message,
-          eventType: dto.eventType,
-        });
-
-        await this.transactionNotificationRepo.save({
-          user: { id: userId } as any,
-          transaction: { id: dto.transactionId } as any,
-          title: dto.title,
-          message: dto.message,
-          metadata: dto.metadata,
-          channel: 'in_app',
-          eventType: dto.eventType,
-          read: false,
-          userId: userId,
-          transactionId: dto.transactionId,
-        });
-      } catch (err) {
-        this.logger.error(
-          `Failed in_app transaction notification for user ${userId}:`,
-          err,
-        );
-      }
-    }
+  async getUnreadCount(userId: string): Promise<number> {
+    return this.notificationRepo.count({
+      where: { userId, read: false },
+    })
   }
 
-  async getNotifications(userId: string) {
-    return await this.notificationRepo.find({
-      where: {
-        user: { id: userId},
-      },
-      order: {
-        createdAt: 'DESC' as const,
-      },
-    });
-  }
-
-  async getTransactionNotifications(userId: string, transactionId?: string) {
-    const query = this.transactionNotificationRepo
-      .createQueryBuilder('notification')
-      .where('notification.userId = :userId', { userId });
-
-    if (transactionId) {
-      query.andWhere('notification.transactionId = :transactionId', {
-        transactionId,
-      });
-    }
-
-    return query.orderBy('notification.createdAt', 'DESC').getMany();
-  }
-
-  async markRead(notificationId: string) {
-    const notification = await this.notificationRepo.findOne({
-      where: { id: notificationId },
-    });
-
-    if (notification) {
-      notification.read = true;
-      return this.notificationRepo.save(notification);
-    }
-    throw new Error('Notification not found');
-  }
-
-  async markTransactionNotificationRead(notificationId: string) {
-    const notification = await this.transactionNotificationRepo.findOne({
-      where: { id: notificationId },
-    });
-
-    if (notification) {
-      notification.read = true;
-      return this.transactionNotificationRepo.save(notification);
-    }
-    throw new Error('Transaction notification not found');
-  }
-
-  async getUserPreferences(userId: string) {
+  async getUserPreferences(userId: string): Promise<NotificationPreference> {
     let prefs = await this.prefRepo.findOne({
       where: { userId },
-    });
+    })
 
     // Create default preferences if none exist
     if (!prefs) {
-      prefs = await this.prefRepo.save({
-        user: { id: userId } as any,
+      prefs = this.prefRepo.create({
         userId,
         inApp: true,
         email: false,
@@ -192,47 +202,91 @@ export class NotificationsService {
         transactionStatusChanges: true,
         transactionErrors: true,
         transactionConfirmations: true,
-      });
+        securityAlerts: true,
+        priceAlerts: true,
+        portfolioUpdates: true,
+        newsUpdates: true,
+        systemAnnouncements: true,
+      })
+
+      await this.prefRepo.save(prefs)
     }
 
-    return prefs;
+    return prefs
   }
 
   async updateUserPreferences(
     userId: string,
     updateDto: UpdateNotificationPreferenceDto,
-  ) {
-    let prefs = await this.getUserPreferences(userId);
+  ): Promise<NotificationPreference> {
+    const prefs = await this.getUserPreferences(userId)
 
     // Update with new values
-    Object.assign(prefs, updateDto);
+    Object.assign(prefs, updateDto)
 
-    return this.prefRepo.save(prefs);
+    return this.prefRepo.save(prefs)
   }
 
-  async sendNotification(notification: Notification) {
+  private shouldSendNotification(
+    type: NotificationType,
+    preferences: NotificationPreference,
+    channel: "in_app" | "email" | "push",
+  ): boolean {
+    // Check if the channel is enabled
+    if (channel === "in_app" && !preferences.inApp) return false
+    if (channel === "email" && !preferences.email) return false
+    if (channel === "push" && !preferences.push) return false
+
+    // Check if the notification type is enabled
+    switch (type) {
+      case NotificationType.TRANSACTION:
+        return (
+          preferences.transactionStatusChanges || preferences.transactionErrors || preferences.transactionConfirmations
+        )
+      case NotificationType.SECURITY:
+        return preferences.securityAlerts
+      case NotificationType.PRICE_ALERT:
+        return preferences.priceAlerts
+      case NotificationType.PORTFOLIO:
+        return preferences.portfolioUpdates
+      case NotificationType.NEWS:
+        return preferences.newsUpdates
+      case NotificationType.SYSTEM:
+        return preferences.systemAnnouncements
+      default:
+        return true
+    }
+  }
+
+  async processNotification(notificationId: string): Promise<void> {
+    const notification = await this.notificationRepo.findOne({
+      where: { id: notificationId },
+      relations: ["user"],
+    })
+
+    if (!notification) {
+      this.logger.error(`Notification not found: ${notificationId}`)
+      return
+    }
+
     try {
-      switch (notification.type) {
-        case 'EMAIL':
-          await this.mailService.sendEmail(notification);
-          break;
-        case 'PUSH':
-          await this.pushService.sendPush(notification);
-          break;
+      if (notification.channel === "email") {
+        await this.mailService.sendEmail(notification)
+      } else if (notification.channel === "push") {
+        await this.pushService.sendPush(notification)
       }
 
-      notification.status = 'SENT';
-      await this.notificationRepo.save(notification);
+      notification.status = NotificationStatus.SENT
+      await this.notificationRepo.save(notification)
     } catch (error) {
-      notification.status = notification.retryCount < 3 ? 'RETRYING' : 'FAILED';
-      notification.retryCount += 1;
-      await this.notificationRepo.save(notification);
-      if (notification.status === 'RETRYING') {
-        // Re-queue the job with delay
-        setTimeout(() => {
-          // Assuming you have the queue injected
-          this.queue.add(notification, { delay: 5000 });
-        }, 0);
+      this.logger.error(`Failed to process notification ${notificationId}: ${error.message}`)
+
+      notification.status = notification.retryCount < 3 ? NotificationStatus.RETRYING : NotificationStatus.FAILED
+      notification.retryCount += 1
+      await this.notificationRepo.save(notification)
+
+      if (notification.status === NotificationStatus.RETRYING) {
+        throw error // Let Bull retry
       }
     }
   }
