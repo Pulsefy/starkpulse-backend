@@ -14,6 +14,41 @@ The StarkPulse backend is built with NestJS, providing a robust, scalable API th
 - **Portfolio Management** 📊: Stores and analyzes user portfolio data
 - **User Authentication** 🔐: Secure user authentication with wallet integration
 - **Webhook Notifications** 🔔: Real-time notifications for blockchain events
+- **Contract Event Monitoring** 📡: Listens to and processes StarkNet smart contract events
+
+## Event Monitoring System
+
+The StarkPulse backend includes a powerful contract event monitoring system that listens for and processes events from StarkNet smart contracts. This system enables real-time updates and data synchronization with the blockchain.
+
+### Features:
+
+- **Contract Event Listener**: Monitors StarkNet blockchain for contract events
+- **Event Filtering**: Ability to filter events by contract address and event type
+- **Event Processing Pipeline**: Robust system to process events as they are received
+- **Event Storage & Indexing**: Secures event data in PostgreSQL with efficient indexing
+- **API Endpoints**: Comprehensive endpoints for retrieving and managing event data
+- **Event-Triggered Actions**: Flexible system for triggering actions based on specific events
+
+### API Endpoints:
+
+- `GET /api/blockchain/events/contracts`: Get all registered contracts
+- `POST /api/blockchain/events/contracts`: Register a new contract to monitor
+- `GET /api/blockchain/events/contracts/:id`: Get a specific contract details
+- `PUT /api/blockchain/events/contracts/:id`: Update contract monitoring settings
+- `DELETE /api/blockchain/events/contracts/:id`: Remove a contract from monitoring
+- `GET /api/blockchain/events/list`: Get contract events with filtering options
+- `GET /api/blockchain/events/:id`: Get a specific event details
+- `POST /api/blockchain/events/contracts/:id/sync`: Manually sync events for a contract
+- `POST /api/blockchain/events/process-pending`: Process pending events
+
+### Configuration:
+
+```
+# StarkNet Configuration in .env
+STARKNET_PROVIDER_URL=https://alpha-mainnet.starknet.io
+STARKNET_NETWORK=mainnet
+STARKNET_POLLING_INTERVAL_MS=10000
+```
 
 ## Tech Stack
 
@@ -99,8 +134,13 @@ src/
 │   ├── blockchain.module.ts
 │   ├── services/
 │   │   ├── starknet.service.ts  # RPC connection
+│   │   ├── event-listener.service.ts # Event monitoring
+│   │   ├── event-processor.service.ts # Event processing
 │   │   └── wallet.service.ts    # Wallet operations
-│   └── dto/
+│   ├── events/                  # Event controllers
+│   ├── entities/                # Blockchain entities
+│   ├── interfaces/              # Type interfaces
+│   └── dto/                     # Data transfer objects
 ├── common/                      # Shared resources
 │   ├── decorators/
 │   ├── filters/                 # Exception filters
@@ -114,7 +154,7 @@ src/
 
 ```
 
-## API Endpoints
+## API Endpoints Documentation
 
 The API provides the following main endpoint groups:
 
@@ -123,94 +163,474 @@ The API provides the following main endpoint groups:
 - **/api/portfolio**: Portfolio tracking and analytics
 - **/api/transactions**: Transaction monitoring and history
 - **/api/blockchain**: StarkNet blockchain interaction
+- **/api/blockchain/events**: Contract event monitoring and processing
 
 Detailed API documentation is available via Swagger at `/api/docs` when the server is running.
 
-## Database Schema
+## Blockchain Events API - Detailed Usage Examples
 
-The application uses PostgreSQL with the following main entities:
+### Contract Management
 
-- **Users**: User profiles and authentication data
-- **News**: Aggregated news articles and metadata
-- **Portfolios**: User portfolio data and historical snapshots
-- **Transactions**: Blockchain transaction records
-- **Notifications**: User notification preferences and history
+#### 1. Register a New Contract for Monitoring
 
-## Environment Variables
-
-Key environment variables include:
-
+**Request:**
+```bash
+curl -X POST http://localhost:3001/api/blockchain/events/contracts \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -d '{
+    "address": "0x04a8e278e1d3543410c9604a8f3e5486b1a6306c7a89dd448e31da89c346c15a",
+    "name": "StarkPulse Token",
+    "description": "ERC-20 token for StarkPulse platform",
+    "monitoredEvents": ["Transfer", "Approval"],
+    "isActive": true,
+    "abi": [
+      {
+        "members": [
+          {
+            "name": "from_",
+            "offset": 0,
+            "type": "felt"
+          },
+          {
+            "name": "to",
+            "offset": 1,
+            "type": "felt"
+          },
+          {
+            "name": "value",
+            "offset": 2,
+            "type": "Uint256"
+          }
+        ],
+        "name": "Transfer",
+        "size": 3,
+        "type": "event"
+      },
+      {
+        "members": [
+          {
+            "name": "owner",
+            "offset": 0,
+            "type": "felt"
+          },
+          {
+            "name": "spender",
+            "offset": 1,
+            "type": "felt"
+          },
+          {
+            "name": "value",
+            "offset": 2,
+            "type": "Uint256"
+          }
+        ],
+        "name": "Approval",
+        "size": 3,
+        "type": "event"
+      }
+    ]
+  }'
 ```
-# Application
-PORT=3001
-NODE_ENV=development
 
-# Database
-DATABASE_HOST=localhost
-DATABASE_PORT=5432
-DATABASE_USERNAME=postgres
-DATABASE_PASSWORD=password
-DATABASE_NAME=starkpulse
-
-# JWT Authentication
-JWT_SECRET=your_jwt_secret
-JWT_EXPIRATION=1d
-
-# StarkNet
-STARKNET_PROVIDER_URL=https://alpha-mainnet.starknet.io
-STARKNET_NETWORK=mainnet
-
-# News API Keys
-NEWS_API_KEY=your_news_api_key
+**Response:**
+```json
+{
+  "id": "29d310af-63b0-4f07-b5b0-fd875ce4f98c",
+  "address": "0x04a8e278e1d3543410c9604a8f3e5486b1a6306c7a89dd448e31da89c346c15a",
+  "name": "StarkPulse Token",
+  "description": "ERC-20 token for StarkPulse platform",
+  "isActive": true,
+  "monitoredEvents": ["Transfer", "Approval"],
+  "abi": [...],
+  "lastSyncedBlock": null,
+  "createdAt": "2023-08-15T10:23:45.123Z",
+  "updatedAt": "2023-08-15T10:23:45.123Z"
+}
 ```
 
-## Scripts
+#### 2. Get All Monitored Contracts
 
-- `npm run start`: Start production server
-- `npm run start:dev`: Start development server with hot-reload
-- `npm run build`: Build for production
-- `npm run test`: Run tests
-- `npm run test:e2e`: Run end-to-end tests
-- `npm run migration:generate`: Generate database migrations
-- `npm run migration:run`: Run database migrations
+**Request:**
+```bash
+curl -X GET http://localhost:3001/api/blockchain/events/contracts \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
 
-## Blockchain Integration
+**Response:**
+```json
+[
+  {
+    "id": "29d310af-63b0-4f07-b5b0-fd875ce4f98c",
+    "address": "0x04a8e278e1d3543410c9604a8f3e5486b1a6306c7a89dd448e31da89c346c15a",
+    "name": "StarkPulse Token",
+    "description": "ERC-20 token for StarkPulse platform",
+    "isActive": true,
+    "monitoredEvents": ["Transfer", "Approval"],
+    "lastSyncedBlock": 456789,
+    "createdAt": "2023-08-15T10:23:45.123Z",
+    "updatedAt": "2023-08-15T10:23:45.123Z"
+  },
+  {
+    "id": "7bc8a4f1-92e3-4d88-b0f2-167bce42a512",
+    "address": "0x02356c3c529e0f6a2a1413af8982dec95ec22e848c5d1dbc4cf70932c35409b1",
+    "name": "StarkPulse DEX",
+    "description": "Decentralized exchange for StarkPulse platform",
+    "isActive": true,
+    "monitoredEvents": ["Trade", "LiquidityAdded", "LiquidityRemoved"],
+    "lastSyncedBlock": 458123,
+    "createdAt": "2023-08-10T14:47:32.890Z",
+    "updatedAt": "2023-08-15T09:12:18.456Z"
+  }
+]
+```
 
-The backend interacts with StarkNet smart contracts for:
+#### 3. Filter Contracts by Address or Active Status
 
-- User authentication
-- Portfolio tracking
-- Transaction monitoring
-- Contract event processing
+**Request:**
+```bash
+curl -X GET "http://localhost:3001/api/blockchain/events/contracts?address=0x04a8e278e1d3543410c9604a8f3e5486b1a6306c7a89dd448e31da89c346c15a&isActive=true" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
 
-See the contracts repository for smart contract implementation details.
+**Response:**
+```json
+[
+  {
+    "id": "29d310af-63b0-4f07-b5b0-fd875ce4f98c",
+    "address": "0x04a8e278e1d3543410c9604a8f3e5486b1a6306c7a89dd448e31da89c346c15a",
+    "name": "StarkPulse Token",
+    "description": "ERC-20 token for StarkPulse platform",
+    "isActive": true,
+    "monitoredEvents": ["Transfer", "Approval"],
+    "lastSyncedBlock": 456789,
+    "createdAt": "2023-08-15T10:23:45.123Z",
+    "updatedAt": "2023-08-15T10:23:45.123Z"
+  }
+]
+```
 
-## Deployment
+#### 4. Get Specific Contract Details
 
-The application can be deployed using Docker:
+**Request:**
+```bash
+curl -X GET http://localhost:3001/api/blockchain/events/contracts/29d310af-63b0-4f07-b5b0-fd875ce4f98c \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+**Response:**
+```json
+{
+  "id": "29d310af-63b0-4f07-b5b0-fd875ce4f98c",
+  "address": "0x04a8e278e1d3543410c9604a8f3e5486b1a6306c7a89dd448e31da89c346c15a",
+  "name": "StarkPulse Token",
+  "description": "ERC-20 token for StarkPulse platform",
+  "isActive": true,
+  "monitoredEvents": ["Transfer", "Approval"],
+  "abi": [...],
+  "lastSyncedBlock": 456789,
+  "createdAt": "2023-08-15T10:23:45.123Z",
+  "updatedAt": "2023-08-15T10:23:45.123Z"
+}
+```
+
+#### 5. Update Contract Monitoring Settings
+
+**Request:**
+```bash
+curl -X PUT http://localhost:3001/api/blockchain/events/contracts/29d310af-63b0-4f07-b5b0-fd875ce4f98c \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -d '{
+    "name": "StarkPulse ERC20",
+    "monitoredEvents": ["Transfer", "Approval", "UpdatedMetadata"],
+    "isActive": true
+  }'
+```
+
+**Response:**
+```json
+{
+  "id": "29d310af-63b0-4f07-b5b0-fd875ce4f98c",
+  "address": "0x04a8e278e1d3543410c9604a8f3e5486b1a6306c7a89dd448e31da89c346c15a",
+  "name": "StarkPulse ERC20",
+  "description": "ERC-20 token for StarkPulse platform",
+  "isActive": true,
+  "monitoredEvents": ["Transfer", "Approval", "UpdatedMetadata"],
+  "abi": [...],
+  "lastSyncedBlock": 456789,
+  "createdAt": "2023-08-15T10:23:45.123Z",
+  "updatedAt": "2023-08-15T11:34:12.567Z"
+}
+```
+
+#### 6. Delete a Contract from Monitoring
+
+**Request:**
+```bash
+curl -X DELETE http://localhost:3001/api/blockchain/events/contracts/29d310af-63b0-4f07-b5b0-fd875ce4f98c \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+**Response:**
+```json
+{
+  "success": true
+}
+```
+
+### Event Management
+
+#### 1. List Contract Events with Filtering
+
+**Request:**
+```bash
+curl -X GET "http://localhost:3001/api/blockchain/events/list?contractId=29d310af-63b0-4f07-b5b0-fd875ce4f98c&name=Transfer&isProcessed=true&limit=2&offset=0" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+**Response:**
+```json
+{
+  "events": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "name": "Transfer",
+      "contractId": "29d310af-63b0-4f07-b5b0-fd875ce4f98c",
+      "data": {
+        "keys": [
+          "0x99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9",
+          "0x04a8e278e1d3543410c9604a8f3e5486b1a6306c7a89dd448e31da89c346c15a",
+          "0x034563724e9f2b6fa164bc9cb38279610e1526dd3f6f99bo3e984ff6de13470"
+        ],
+        "data": ["0x0000000000000000000000000000000000000000000000056bc75e2d63100000"]
+      },
+      "blockNumber": 456790,
+      "blockHash": "0x5ba65aed33deac1b47a461b1c1ceec98da833c79e397238c5ce3c48115ba72d",
+      "transactionHash": "0x731b11e33a3c3fb290c8d282844928ad0dabb9c8a5be3b8b4a67b2ffd9b8fb9",
+      "isProcessed": true,
+      "createdAt": "2023-08-15T11:45:23.456Z",
+      "contract": {
+        "id": "29d310af-63b0-4f07-b5b0-fd875ce4f98c",
+        "address": "0x04a8e278e1d3543410c9604a8f3e5486b1a6306c7a89dd448e31da89c346c15a",
+        "name": "StarkPulse ERC20"
+      }
+    },
+    {
+      "id": "63f42d8f-1a9b-4d2c-b8e4-10a44f3e7a21",
+      "name": "Transfer",
+      "contractId": "29d310af-63b0-4f07-b5b0-fd875ce4f98c",
+      "data": {
+        "keys": [
+          "0x99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9",
+          "0x034563724e9f2b6fa164bc9cb38279610e1526dd3f6f99bo3e984ff6de13470",
+          "0x076cd76128983e4c4649e0d5f28ed0846d57a967205b97a9debc29b478d1410"
+        ],
+        "data": ["0x00000000000000000000000000000000000000000000000a968163f0a57b400"]
+      },
+      "blockNumber": 456791,
+      "blockHash": "0x1ba65aed33deac1b47a461b1c1ceec98da833c79e397238c5ce3c48115ba72d",
+      "transactionHash": "0x331b11e33a3c3fb290c8d282844928ad0dabb9c8a5be3b8b4a67b2ffd9b8fb9",
+      "isProcessed": true,
+      "createdAt": "2023-08-15T11:45:27.123Z",
+      "contract": {
+        "id": "29d310af-63b0-4f07-b5b0-fd875ce4f98c",
+        "address": "0x04a8e278e1d3543410c9604a8f3e5486b1a6306c7a89dd448e31da89c346c15a",
+        "name": "StarkPulse ERC20"
+      }
+    }
+  ],
+  "pagination": {
+    "total": 24,
+    "limit": 2,
+    "offset": 0
+  }
+}
+```
+
+#### 2. Filter Events by Block Range
+
+**Request:**
+```bash
+curl -X GET "http://localhost:3001/api/blockchain/events/list?fromBlockNumber=456790&toBlockNumber=456795&limit=5" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+**Response:**
+```json
+{
+  "events": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "name": "Transfer",
+      "contractId": "29d310af-63b0-4f07-b5b0-fd875ce4f98c",
+      "data": {
+        "keys": [
+          "0x99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9",
+          "0x04a8e278e1d3543410c9604a8f3e5486b1a6306c7a89dd448e31da89c346c15a",
+          "0x034563724e9f2b6fa164bc9cb38279610e1526dd3f6f99bo3e984ff6de13470"
+        ],
+        "data": ["0x0000000000000000000000000000000000000000000000056bc75e2d63100000"]
+      },
+      "blockNumber": 456790,
+      "blockHash": "0x5ba65aed33deac1b47a461b1c1ceec98da833c79e397238c5ce3c48115ba72d",
+      "transactionHash": "0x731b11e33a3c3fb290c8d282844928ad0dabb9c8a5be3b8b4a67b2ffd9b8fb9",
+      "isProcessed": true,
+      "createdAt": "2023-08-15T11:45:23.456Z"
+    },
+    // More events within the block range...
+  ],
+  "pagination": {
+    "total": 18,
+    "limit": 5,
+    "offset": 0
+  }
+}
+```
+
+#### 3. Get Specific Event Details
+
+**Request:**
+```bash
+curl -X GET http://localhost:3001/api/blockchain/events/550e8400-e29b-41d4-a716-446655440000 \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+**Response:**
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "name": "Transfer",
+  "contractId": "29d310af-63b0-4f07-b5b0-fd875ce4f98c",
+  "data": {
+    "keys": [
+      "0x99cd8bde557814842a3121e8ddfd433a539b8c9f14bf31ebf108d12e6196e9",
+      "0x04a8e278e1d3543410c9604a8f3e5486b1a6306c7a89dd448e31da89c346c15a",
+      "0x034563724e9f2b6fa164bc9cb38279610e1526dd3f6f99bo3e984ff6de13470"
+    ],
+    "data": ["0x0000000000000000000000000000000000000000000000056bc75e2d63100000"],
+    "decodedData": {
+      "from": "0x04a8e278e1d3543410c9604a8f3e5486b1a6306c7a89dd448e31da89c346c15a",
+      "to": "0x034563724e9f2b6fa164bc9cb38279610e1526dd3f6f99bo3e984ff6de13470",
+      "value": "100000000000000000000"
+    }
+  },
+  "blockNumber": 456790,
+  "blockHash": "0x5ba65aed33deac1b47a461b1c1ceec98da833c79e397238c5ce3c48115ba72d",
+  "transactionHash": "0x731b11e33a3c3fb290c8d282844928ad0dabb9c8a5be3b8b4a67b2ffd9b8fb9",
+  "isProcessed": true,
+  "createdAt": "2023-08-15T11:45:23.456Z",
+  "contract": {
+    "id": "29d310af-63b0-4f07-b5b0-fd875ce4f98c",
+    "address": "0x04a8e278e1d3543410c9604a8f3e5486b1a6306c7a89dd448e31da89c346c15a",
+    "name": "StarkPulse ERC20",
+    "description": "ERC-20 token for StarkPulse platform"
+  }
+}
+```
+
+### Action Endpoints
+
+#### 1. Manually Sync Events for a Contract
+
+**Request:**
+```bash
+curl -X POST http://localhost:3001/api/blockchain/events/contracts/29d310af-63b0-4f07-b5b0-fd875ce4f98c/sync \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Manual sync completed successfully"
+}
+```
+
+#### 2. Process Pending Events
+
+**Request:**
+```bash
+curl -X POST http://localhost:3001/api/blockchain/events/process-pending \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "processedCount": 15
+}
+```
+
+## Load Testing and Performance Optimization
+
+To ensure the system can handle high event volumes efficiently, we recommend using the following approaches for load testing:
 
 ```bash
-# Build Docker image
-docker build -t starkpulse-api .
+# Install k6 load testing tool
+npm install -g k6
 
-# Run Docker container
-docker run -p 3001:3001 starkpulse-api
+# Create a load test script
+cat > event-load-test.js << 'EOF'
+import http from 'k6/http';
+import { check, sleep } from 'k6';
+
+export const options = {
+  stages: [
+    { duration: '30s', target: 20 },  // Ramp up to 20 users
+    { duration: '1m', target: 20 },   // Stay at 20 users for 1 minute
+    { duration: '30s', target: 50 },  // Ramp up to 50 users
+    { duration: '1m', target: 50 },   // Stay at 50 users for 1 minute
+    { duration: '30s', target: 0 },   // Ramp down to 0 users
+  ],
+};
+
+export default function () {
+  const url = 'http://localhost:3001/api/blockchain/events/list';
+  const params = {
+    headers: {
+      'Authorization': 'Bearer YOUR_JWT_TOKEN',
+    },
+  };
+  
+  const res = http.get(url, params);
+  check(res, {
+    'is status 200': (r) => r.status === 200,
+    'response time < 500ms': (r) => r.timings.duration < 500,
+  });
+  
+  sleep(1);
+}
+EOF
+
+# Run the load test
+k6 run event-load-test.js
+```
+
+## Webhook Integration
+
+StarkPulse provides webhook notifications for blockchain events. To configure a webhook:
+
+```bash
+curl -X POST http://localhost:3001/api/notifications/webhooks \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -d '{
+    "url": "https://your-app.com/webhooks/blockchain-events",
+    "secret": "your_webhook_secret",
+    "eventTypes": ["Transfer", "Trade"],
+    "contractIds": ["29d310af-63b0-4f07-b5b0-fd875ce4f98c"]
+  }'
 ```
 
 ## Contributing
 
-We welcome contributions to StarkPulse! Please follow these steps:
+Contributions are welcome! Please feel free to submit a Pull Request.
 
-1. Fork the repository
-2. Create your feature branch: `git checkout -b feature/amazing-feature`
-3. Commit your changes: `git commit -m 'Add some amazing feature'`
-4. Push to the branch: `git push origin feature/amazing-feature`
-5. Open a Pull Request
+## License
 
-## Maintainers
-
-- Cedarich 👨‍💻
-- Divineifed1 👨‍💻
+This project is licensed under the MIT License - see the LICENSE file for details.
 
 ---
 

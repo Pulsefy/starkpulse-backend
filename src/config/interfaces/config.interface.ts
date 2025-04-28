@@ -24,6 +24,12 @@ export interface DatabaseConfig {
       coinGecko: string;
     };
   }
+
+  export interface StarknetConfig {
+    providerUrl: string;
+    network: string;
+    pollingIntervalMs: number;
+  }
   
   export interface AppConfig {
     environment: string;
@@ -31,5 +37,6 @@ export interface DatabaseConfig {
     database: DatabaseConfig;
     jwt: JwtConfig;
     crypto: CryptoConfig;
+    starknet: StarknetConfig;
   }
   

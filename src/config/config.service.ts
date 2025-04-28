@@ -4,7 +4,7 @@ import {
   DatabaseConfig,
   JwtConfig,
   CryptoConfig,
-  AppConfig,
+  StarknetConfig, AppConfig,
   SessionConfig,
 } from './interfaces/config.interface';
 import { StarkNetConfig } from './interfaces/starknet-config.interface';
@@ -69,6 +69,14 @@ export class ConfigService {
     const config = this.configService.get<CryptoConfig>('crypto');
     if (!config) {
       throw new Error('Crypto configuration is missing');
+    }
+    return config;
+  }
+
+  get starknetConfig(): StarknetConfig {
+    const config = this.configService.get<StarknetConfig>('starknet');
+    if (!config) {
+      throw new Error('Starknet configuration is missing');
     }
     return config;
   }
