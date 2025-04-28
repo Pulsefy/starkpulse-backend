@@ -1,3 +1,4 @@
+// src/notifications/entities/notification-preference.entity.ts
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -7,7 +8,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
 } from "typeorm"
-import { User } from "src/auth/entities/user.entity"
+import { User } from "src/users/users.entity"
 
 @Entity()
 export class NotificationPreference {
@@ -55,26 +56,6 @@ export class NotificationPreference {
 
   @Column({ default: true })
   systemAnnouncements: boolean
-
-  // Frequency settings
-  @Column({ default: "immediate" })
-  emailFrequency: "immediate" | "daily" | "weekly" | "never"
-
-  @Column({ default: "immediate" })
-  pushFrequency: "immediate" | "daily" | "weekly" | "never"
-
-  // Quiet hours
-  @Column({ default: false })
-  enableQuietHours: boolean
-
-  @Column({ default: "22:00" })
-  quietHoursStart: string
-
-  @Column({ default: "08:00" })
-  quietHoursEnd: string
-
-  @Column({ default: true })
-  quietHoursExceptUrgent: boolean
 
   @CreateDateColumn()
   createdAt: Date
