@@ -7,6 +7,10 @@ import { NotificationPreference } from './entities/notification-preference.entit
 import { CreateTransactionNotificationDto } from './dto/create-transaction-notification.dto';
 import { UpdateNotificationPreferenceDto } from './dto/update-notification-preference.dto';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { MailService } from './mail.service';
+import { PushService } from './push.service';
+import { InjectQueue } from '@nestjs/bull';
+import { Queue } from 'bull';
 
 type NotificationChannel = 'in_app' | 'email' | 'push';
 type NotificationHandler = () => Promise<void>;
@@ -23,6 +27,11 @@ export class NotificationsService {
     @InjectRepository(NotificationPreference)
     private readonly prefRepo: Repository<NotificationPreference>,
     private readonly eventEmitter: EventEmitter2,
+
+    private readonly mailService: MailService,
+    private readonly pushService: PushService,
+
+    @InjectQueue('notification-queue') private readonly queue: Queue,
   ) {}
 
   async dispatch(
@@ -121,7 +130,7 @@ export class NotificationsService {
   async getNotifications(userId: string) {
     return await this.notificationRepo.find({
       where: {
-        userId: userId,
+        user: { id: userId},
       },
       order: {
         createdAt: 'DESC' as const,
@@ -199,5 +208,32 @@ export class NotificationsService {
     Object.assign(prefs, updateDto);
 
     return this.prefRepo.save(prefs);
+  }
+
+  async sendNotification(notification: Notification) {
+    try {
+      switch (notification.type) {
+        case 'EMAIL':
+          await this.mailService.sendEmail(notification);
+          break;
+        case 'PUSH':
+          await this.pushService.sendPush(notification);
+          break;
+      }
+
+      notification.status = 'SENT';
+      await this.notificationRepo.save(notification);
+    } catch (error) {
+      notification.status = notification.retryCount < 3 ? 'RETRYING' : 'FAILED';
+      notification.retryCount += 1;
+      await this.notificationRepo.save(notification);
+      if (notification.status === 'RETRYING') {
+        // Re-queue the job with delay
+        setTimeout(() => {
+          // Assuming you have the queue injected
+          this.queue.add(notification, { delay: 5000 });
+        }, 0);
+      }
+    }
   }
 }

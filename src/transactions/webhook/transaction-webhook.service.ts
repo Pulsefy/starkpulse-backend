@@ -31,10 +31,11 @@ export class TransactionWebhookService {
       // Update transaction status
       const previousStatus = transaction.status;
       transaction.status = eventData.status;
-      
+
       // Update other fields if available
-      if (eventData.hash) transaction.hash = eventData.hash;
-      if (eventData.blockNumber) transaction.blockNumber = eventData.blockNumber;
+      if (eventData.hash) transaction.transactionHash = eventData.hash;
+      if (eventData.blockNumber)
+        transaction.blockNumber = eventData.blockNumber;
       if (eventData.error) transaction.error = eventData.error;
       if (eventData.metadata) transaction.metadata = eventData.metadata;
 
@@ -43,7 +44,11 @@ export class TransactionWebhookService {
 
       // Generate notification if status changed
       if (previousStatus !== eventData.status) {
-        await this.generateStatusChangeNotification(transaction, previousStatus, eventData);
+        await this.generateStatusChangeNotification(
+          transaction,
+          previousStatus,
+          eventData,
+        );
       }
 
       // If error occurred, send error notification
@@ -66,7 +71,7 @@ export class TransactionWebhookService {
     const userId = transaction.userId;
     const title = `Transaction Status Changed: ${previousStatus} → ${eventData.status}`;
     const message = `Your transaction ${transaction.id.substring(0, 8)}... has changed status from ${previousStatus} to ${eventData.status}.`;
-    
+
     await this.notificationsService.dispatchTransactionNotification({
       userId,
       transactionId: transaction.id,
@@ -88,7 +93,7 @@ export class TransactionWebhookService {
     const userId = transaction.userId;
     const title = `Transaction Error: ${transaction.id.substring(0, 8)}...`;
     const message = `Error in transaction: ${eventData.error}`;
-    
+
     await this.notificationsService.dispatchTransactionNotification({
       userId,
       transactionId: transaction.id,

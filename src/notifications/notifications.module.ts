@@ -10,6 +10,10 @@ import { NotificationPreferencesController } from './notification-preferences.co
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
+import { BullModule } from '@nestjs/bull';
+import { MailService } from './mail.service';
+import { DispatcherService } from './dispatcher.service';
+import { PushService } from './push.service';
 
 @Module({
   imports: [
@@ -27,8 +31,11 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
       }),
     }),
     EventEmitterModule.forRoot(),
+    BullModule.registerQueue({
+      name: 'notification-queue',
+    })
   ],
-  providers: [NotificationsService, NotificationsGateway],
+  providers: [NotificationsService, NotificationsGateway, MailService, DispatcherService, PushService],
   controllers: [NotificationPreferencesController],
   exports: [NotificationsService],
 })
