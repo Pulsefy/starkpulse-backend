@@ -8,9 +8,7 @@ import { EventListenerService } from './services/event-listener.service';
 import { EventProcessorService } from './services/event-processor.service';
 import { EventController } from './events/event.controller';
 import { Blockchain } from './entities/blockchain.entity';
-import { EventController } from './events/event.controller';
 
-import { Blockchain } from './entities/blockchain.entity';
 import { EventEntity } from './entities/event.entity';
 import { ContractEntity } from './entities/contract.entity';
 
@@ -19,24 +17,18 @@ import { ContractEntity } from './entities/contract.entity';
     ConfigModule,
     TypeOrmModule.forFeature([
       Blockchain,
-      Blockchain, EventEntity,
-      ContractEntity
+      Blockchain,
+      EventEntity,
+      ContractEntity,
     ]),
   ],
-  controllers: [
-    BlockchainController,
-    EventController,
-  ],
+  controllers: [BlockchainController, EventController],
   providers: [
     BlockchainService,
     StarknetService,
     EventListenerService,
     EventProcessorService,
   ],
-  exports: [
-    StarknetService,
-    EventListenerService,
-    EventProcessorService,
-  ],
+  exports: [StarknetService, EventListenerService, EventProcessorService],
 })
 export class BlockchainModule {}
