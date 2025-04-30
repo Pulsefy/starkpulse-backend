@@ -11,8 +11,9 @@ import { ContractService } from './services/contract.service';
 import { StarknetService } from './services/starknet.service';
 import { EventListenerService } from './services/event-listener.service';
 import { EventProcessorService } from './services/event-processor.service';
-
+import { EventController } from './events/event.controller';
 import { Blockchain } from './entities/blockchain.entity';
+
 import { EventEntity } from './entities/event.entity';
 import { ContractEntity } from './entities/contract.entity';
 import { StarknetContractService } from './services/starknet-contract.service';
@@ -26,9 +27,7 @@ import { StarknetContractService } from './services/starknet-contract.service';
       ContractEntity,
     ]),
   ],
-  controllers: [
-    BlockchainController,
-  ],
+  controllers: [BlockchainController, EventController],
   providers: [
     BlockchainService,
     ContractService,
