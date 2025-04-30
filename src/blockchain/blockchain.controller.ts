@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
 import { BlockchainService } from './blockchain.service';
 import { CreateBlockchainDto } from './dto/create-blockchain.dto';
