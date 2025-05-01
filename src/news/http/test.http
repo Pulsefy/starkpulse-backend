@@ -1,0 +1,8 @@
+
+POST http://localhost:3000/news/publish
+content-type:application/json
+{
+  "title": "New NFT Collection Released",
+  "content": "A new NFT collection is now available on StarkPulse.",
+  "category": "nfts"
+}
