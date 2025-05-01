@@ -58,6 +58,6 @@ export class PortfolioController {
 
   @Get('analytics/:userId')
   getAnalytics(@Param('userId') userId: string) {
-    return this.portfolioService.getUserAnalytics(userId);
+    // return this.portfolioService.getUserAnalytics(userId);
   }
 }

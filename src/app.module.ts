@@ -17,12 +17,10 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { TransactionsModule } from './transactions/transactions.module';
 import { UsersModule } from './users/users.module';
 
-// New module
-// import { NewsModule } from './news/news.module';
 
 // Middleware
 import { RequestLoggerMiddleware } from './common/middleware/request-logger.middleware';
-import { NewsModule } from './api/news/news.module';
+import { NewsModule } from './news/news.module';
 
 @Module({
   imports: [
@@ -48,17 +46,17 @@ import { NewsModule } from './api/news/news.module';
     }),
 
     // Application feature modules
-    HealthModule,
-    AuthModule,
-    PreferencesModule,
-    SessionModule,
-    PortfolioModule,
-    AnalyticsModule,
-    BlockchainModule,
-    PriceModule,
-    NotificationsModule,
-    TransactionsModule,
-    UsersModule,
+    // HealthModule,
+    // AuthModule,
+    // PreferencesModule,
+    // SessionModule,
+    // PortfolioModule,
+    // AnalyticsModule,
+    // BlockchainModule,
+    // PriceModule,
+    // NotificationsModule,
+    // TransactionsModule,
+    // UsersModule,
     
     // New News module
     NewsModule,
