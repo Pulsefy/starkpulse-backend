@@ -15,6 +15,7 @@ import { TransactionsModule } from './transactions/transactions.module';
 import { UsersModule } from './users/users.module';
 import { PreferencesModule } from './preferences/module/preferences.module';
 import { SessionModule } from './session/session.module';
+import { MarketDataModule } from './market-data/market-data.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { SessionModule } from './session/session.module';
     TransactionsModule,
     UsersModule,
     BlockchainModule,
+    MarketDataModule,
     EventEmitterModule.forRoot(),
     // Add other modules here as needed
   ],
