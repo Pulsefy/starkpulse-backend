@@ -16,6 +16,8 @@ import { UsersModule } from './users/users.module';
 import { PreferencesModule } from './preferences/module/preferences.module';
 import { SessionModule } from './session/session.module';
 import { NewsModule } from './news/news.module';
+import { MarketDataModule } from './market-data/market-data.module';
+
 
 @Module({
   imports: [
@@ -39,6 +41,7 @@ import { NewsModule } from './news/news.module';
     TransactionsModule,
     UsersModule,
     BlockchainModule,
+    MarketDataModule,
     EventEmitterModule.forRoot(),
     NewsModule,
     // Add other modules here as needed
