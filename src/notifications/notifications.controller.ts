@@ -58,11 +58,7 @@ export class NotificationsController {
     return this.notificationsService.findAll(userId, query)
   }
 
-  @Post('send-daily-digest')
-  async sendDailyDigest(@Body('userId') userId: string) {
-    await this.notificationsService.sendDailyDigest(userId);
-    return { message: 'Daily digest email sent.' };
-  }
+ 
   
   @Get('unread-count')
   @ApiOperation({ summary: 'Get count of unread notifications' })

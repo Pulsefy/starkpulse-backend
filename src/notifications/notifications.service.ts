@@ -231,6 +231,18 @@ export class NotificationsService {
     return this.prefRepo.save(prefs)
   }
 
+  async updateNotificationPreferences(userId: string, dto: UpdateNotificationPreferenceDto): Promise<NotificationPreference> {
+    let prefs = await this.prefRepo.findOne({ where: { userId } });
+  
+    if (!prefs) {
+      prefs = this.prefRepo.create({ userId });
+    }
+  
+    Object.assign(prefs, dto);
+    return this.prefRepo.save(prefs);
+  }
+  
+
   private shouldSendNotification(
     type: NotificationType,
     preferences: NotificationPreference,
@@ -335,20 +347,6 @@ public async send({
 }
 
 
-public async sendDailyDigest(userId: string): Promise<void> {
-  // Find all notifications sent today that are not grouped
-  const notifications = await this.notificationRepo.find({
-    where: { userId, createdAt: MoreThan(new Date(new Date().setHours(0, 0, 0, 0))) },
-  });
 
-  // Group notifications and create a digest
-  const groupedNotifications = notifications.reduce((acc, notification) => {
-    if (!acc[notification.channel]) {
-      acc[notification.channel] = [];
-    }
-    acc[notification.channel].push(notification);
-    return acc;
-  }, {});
-}
 
 }
