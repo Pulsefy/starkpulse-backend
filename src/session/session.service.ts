@@ -15,7 +15,7 @@ import { UAParser } from 'ua-parser-js';
 import { User } from '../auth/entities/user.entity';
 
 @Injectable()
-export class SessionService  implements OnModuleDestroy {
+export class SessionService implements OnModuleDestroy {
   private cleanupInterval: NodeJS.Timeout;
   constructor(
     @InjectRepository(Session)
@@ -157,15 +157,15 @@ export class SessionService  implements OnModuleDestroy {
    */
   async getUserSessions(userId: string): Promise<Omit<Session, 'token'>[]> {
     const sessions = await this.sessionRepository.find({
-      where: { 
+      where: {
         userId,
-        isActive: true 
+        isActive: true,
       },
       order: { lastActiveAt: 'DESC' },
     });
-    
+
     // Remove token from each session for security
-    return sessions.map(session => {
+    return sessions.map((session) => {
       const { token, ...sessionWithoutToken } = session;
       return sessionWithoutToken;
     });
