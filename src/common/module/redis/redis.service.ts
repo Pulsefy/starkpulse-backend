@@ -20,7 +20,7 @@ export class RedisService {
     }
   }
 
-  async get(key: string): Promise<string> {
+  async get(key: string): Promise<string | null> {
     return this.client.get(key);
   }
 
@@ -34,7 +34,7 @@ export class RedisService {
   }
 
   // Get a value from a hash map
-  async hget(hash: string, field: string): Promise<string | null> {
+  async hget(hash: string, field: string): Promise<string | undefined> {
     return this.client.hGet(hash, field);
   }
 
@@ -76,24 +76,4 @@ export class RedisService {
   async delHash(hash: string): Promise<number> {
     return this.client.del(hash);
   }
-
-  // Execute multiple Redis commands in a batch (multi)
-  async executeMulti(commands: Array<[string, ...unknown[]]>): Promise<any[]> {
-    const multi = this.client.multi();
-    commands.forEach((command) => {
-      multi[command[0]](...command.slice(1));
-    });
-    return multi.exec();
-  }
-
-  // Set multiple fields in a hash using multi
-  async hsetMulti(hash: string, fields: Record<string, string>): Promise<void> {
-    const commands: [string, ...unknown[]][] = [];
-    for (const [field, value] of Object.entries(fields)) {
-      commands.push(['hSet', hash, field, value]);
-    }
-    await this.executeMulti(commands);
-  }
-
-  // async hexist
 }
