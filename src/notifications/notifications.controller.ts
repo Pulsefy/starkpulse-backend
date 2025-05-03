@@ -58,6 +58,8 @@ export class NotificationsController {
     return this.notificationsService.findAll(userId, query)
   }
 
+ 
+  
   @Get('unread-count')
   @ApiOperation({ summary: 'Get count of unread notifications' })
   @ApiResponse({

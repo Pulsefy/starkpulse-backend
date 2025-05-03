@@ -5,4 +5,5 @@ export enum NotificationType {
     PRICE_ALERT = "price_alert",
     PORTFOLIO = "portfolio",
     NEWS = "news",
+    DIGEST = 'digest'
   }

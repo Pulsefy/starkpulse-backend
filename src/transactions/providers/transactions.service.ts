@@ -18,10 +18,12 @@ export class TransactionService {
   constructor(
     @InjectRepository(Transaction)
     private transactionRepository: Repository<Transaction>,
+
     @InjectRepository(TransactionEvent)
     private transactionEventRepository: Repository<TransactionEvent>,
+
     private transactionMonitorService: TransactionMonitorService,
-    rService: TransactionMonitorService,
+   
     private transactionIndexService: TransactionIndexService,
   ) {}
 
@@ -296,4 +298,49 @@ export class TransactionService {
       return [];
     }
   }
+
+  // Update transaction status and trigger notification
+  public async updateTransactionStatus(transactionId: string, newStatus: string): Promise<Transaction> {
+    const transaction = await this.transactionRepository.findOne({
+      where: { id: transactionId },
+    });
+
+    if (!transaction) {
+      throw new Error('Transaction not found');
+    }
+
+    transaction.status = newStatus;
+    await this.transactionRepository.save(transaction);
+
+    // Trigger notification for status change
+    await this.transactionMonitorService.notifyTransactionEvent({
+      userId: transaction.userId,  // Assuming you have userId linked
+      transactionId: transaction.id,
+      eventType: 'status_change',
+      metadata: { status: newStatus },
+    });
+    return transaction
+  }
+
+  private mapStatusToEventType(status: string): 'status_change' | 'error' | 'confirmation' | 'other' {
+      if (status === 'FAILED') return 'error';
+      if (status === 'CONFIRMED') return 'confirmation';
+      if (status === 'PENDING') return 'status_change';
+      return 'other';
+  }
+
+  // Assume you have various states to handle:
+  public async handleTransactionCreated(transactionId: string) {
+  await this.updateTransactionStatus(transactionId, 'PENDING');
+  // You could also trigger an initial notification
+}
+
+public async handleTransactionConfirmed(transactionId: string) {
+  await this.updateTransactionStatus(transactionId, 'CONFIRMED');
+}
+
+public async handleTransactionFailed(transactionId: string) {
+  await this.updateTransactionStatus(transactionId, 'FAILED');
+}
+
 }

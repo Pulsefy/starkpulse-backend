@@ -11,12 +11,17 @@ export class UsersService {
     private readonly userRepository: Repository<User>,
   ) {}
 
-  async findByWalletAddress(walletAddress: string): Promise<User | null> {
+  public async findByWalletAddress(walletAddress: string): Promise<User | null> {
     return this.userRepository.findOne({ where: { walletAddress } });
   }
 
-  async create(createUserDto: CreateUserDto): Promise<User> {
+  public async findById(id: string): Promise<User | null> {
+    return this.userRepository.findOne({ where: { id } });
+  }
+
+  public async create(createUserDto: CreateUserDto): Promise<User> {
     const user = this.userRepository.create(createUserDto);
     return this.userRepository.save(user);
   }
 }
+
