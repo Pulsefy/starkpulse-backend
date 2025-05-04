@@ -10,6 +10,10 @@ import { Transaction } from '../entities/transaction.entity';
 import { TransactionEvent } from '../entities/transaction-event.entity';
 import { EventType } from '../enums/EventType.enum';
 import { TransactionType } from '../enums/transactionType.enum';
+import { UsersService } from 'src/users/users.service';
+import { Notification } from 'src/notifications/entities/notification.entity';
+import { NotificationType } from 'src/notifications/enums/notificationType.enum';
+
 
 @Injectable()
 export class TransactionMonitorService implements OnModuleInit {
@@ -22,10 +26,19 @@ export class TransactionMonitorService implements OnModuleInit {
   constructor(
     @InjectRepository(Transaction)
     private transactionRepository: Repository<Transaction>,
+
     @InjectRepository(TransactionEvent)
     private transactionEventRepository: Repository<TransactionEvent>,
+
+    @InjectRepository(Notification)
+    private readonly notificationRepo: Repository<Notification>,
+
     private configService: ConfigService,
+
     private transactionIndexService: TransactionIndexService,
+
+    private readonly userService: UsersService,
+
   ) {
     // Initialize StarkNet provider
     const providerUrl = this.configService.get<string>('STARKNET_PROVIDER_URL');
@@ -495,4 +508,60 @@ export class TransactionMonitorService implements OnModuleInit {
       );
     }
   }
+
+  //FN TO TRIGGER  TRANSACTION NOTIFICATION  
+  public async notifyTransactionEvent({
+    userId,
+    transactionId,
+    eventType,
+    metadata = {},
+  }: {
+    userId: string;
+    transactionId: string;
+    eventType: 'status_change' | 'error' | 'confirmation' | 'other';
+    metadata?: any;
+  }) {
+    const user = await this.userService.findById(userId);
+
+    const titleMap = {
+      status_change: 'Transaction Status Updated',
+      error: 'Transaction Failed',
+      confirmation: 'Transaction Confirmed',
+      other: 'Transaction Notification',
+    };
+
+    const messageMap = {
+      status_change: `Your transaction has updated status.`,
+      error: `There was an error with your transaction.`,
+      confirmation: `Your transaction has been confirmed.`,
+      other: `You have a new transaction update.`,
+    };
+
+    const title = titleMap[eventType];
+    const message = messageMap[eventType];
+
+    // Save to TransactionNotification
+    await this.transactionRepository.save({
+      userId,
+      transactionId,
+      eventType,
+      title,
+      message,
+      metadata,
+      channel: 'in_app', // Can be customized to email, push later
+    });
+
+    // Save to general Notification
+    await this.notificationRepo.save({
+      userId,
+      title,
+      content: message,
+      metadata: { ...metadata, transactionId, eventType },
+      channel: 'in_app',
+      status: 'PENDING',  // Pending until sent
+    });
+
+  }
+
 }
+

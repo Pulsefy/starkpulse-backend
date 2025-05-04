@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException } from "@nestjs/common"
 import { InjectRepository } from "@nestjs/typeorm"
-import type { Repository, FindOptionsWhere } from "typeorm"
+import {  Repository, type FindOptionsWhere, MoreThan } from "typeorm"
 import type { EventEmitter2 } from "@nestjs/event-emitter"
 import { Notification } from "./entities/notification.entity"
 import { NotificationPreference } from "./entities/notification-preference.entity"
@@ -14,6 +14,7 @@ import { InjectQueue } from "@nestjs/bull"
 import type { Queue } from "bull"
 import { NotificationType } from "./enums/notificationType.enum"
 import { NotificationStatus } from "./enums/notificationStatus.enum"
+import { NotificationTemplate } from "./entities/notification-template.entity"
 
 @Injectable()
 export class NotificationsService {
@@ -25,6 +26,9 @@ export class NotificationsService {
 
     @InjectRepository(NotificationPreference)
     private readonly prefRepo: Repository<NotificationPreference>,
+
+    @InjectRepository(NotificationTemplate)
+    private readonly templateRepo: NotificationTemplate,
 
     private readonly eventEmitter: EventEmitter2,
     private readonly mailService: MailService,
@@ -227,6 +231,18 @@ export class NotificationsService {
     return this.prefRepo.save(prefs)
   }
 
+  async updateNotificationPreferences(userId: string, dto: UpdateNotificationPreferenceDto): Promise<NotificationPreference> {
+    let prefs = await this.prefRepo.findOne({ where: { userId } });
+  
+    if (!prefs) {
+      prefs = this.prefRepo.create({ userId });
+    }
+  
+    Object.assign(prefs, dto);
+    return this.prefRepo.save(prefs);
+  }
+  
+
   private shouldSendNotification(
     type: NotificationType,
     preferences: NotificationPreference,
@@ -290,4 +306,47 @@ export class NotificationsService {
       }
     }
   }
+
+  //THIS FN SENDS A NOTIFICATION
+public async send({
+  userId,
+  title,
+  content,
+  channel,
+  metadata,
+  type,
+}: {
+  userId: string;
+  title: string;
+  content: string;
+  channel: 'in_app' | 'email' | 'push';
+  metadata?: Record<string, any>;
+  type: 'transaction' | 'price_alert' | 'news_update';
+}): Promise<Notification> {
+  // Fetch the appropriate template using getRepository
+  const templateRepo = Repository(NotificationTemplate);
+
+  const templates = await templateRepo.find({
+    where: { type },
+  });
+
+  const template = templates.length > 0 ? templates[0] : null;
+
+  // Handle case where template is not found
+  const finalContent = template ? template.template.replace('{content}', content) : content;
+
+  const notification = this.notificationRepo.create({
+    userId,
+    title: template?.subject || title, // Default to provided title
+    content: finalContent,
+    channel,
+    metadata,
+  });
+
+  return this.notificationRepo.save(notification);
+}
+
+
+
+
 }

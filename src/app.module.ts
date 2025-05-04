@@ -16,6 +16,8 @@ import { UsersModule } from './users/users.module';
 import { PreferencesModule } from './preferences/module/preferences.module';
 import { SessionModule } from './session/session.module';
 import { MarketModule } from './market/market.module';
+import { NewsModule } from './news/news.module';
+import { MarketDataModule } from './market-data/market-data.module';
 
 @Module({
   imports: [
@@ -38,10 +40,9 @@ import { MarketModule } from './market/market.module';
     NotificationsModule,
     TransactionsModule,
     UsersModule,
-    BlockchainModule,
-    EventEmitterModule.forRoot(),
+    MarketDataModule,
+    NewsModule,
     MarketModule,
-    // Add other modules here as needed
   ],
 })
 export class AppModule implements NestModule {

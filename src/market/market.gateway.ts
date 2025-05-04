@@ -1,49 +1,51 @@
+// src/market/market.gateway.ts
 import {
   WebSocketGateway,
   WebSocketServer,
-  SubscribeMessage,
   OnGatewayInit,
   OnGatewayConnection,
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { MarketService } from './market.service';
 import { Logger } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 
-@WebSocketGateway({
-  cors: {
-    origin: '*',
-  },
-})
+@WebSocketGateway({ cors: true })
 export class MarketGateway
   implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
 {
+  private logger = new Logger('MarketGateway');
+
   @WebSocketServer()
   server: Server;
 
-  private logger: Logger = new Logger('MarketGateway');
-
-  constructor(private readonly marketService: MarketService) {}
+  constructor(private readonly jwtService: JwtService) {}
 
   afterInit(server: Server) {
-    this.logger.log('WebSocket server initialized');
+    this.logger.log('WebSocket Initialized');
   }
 
   handleConnection(client: Socket) {
-    this.logger.log(`Client connected: ${client.id}`);
+    try {
+      const token = client.handshake.auth.token;
+      const user = this.jwtService.verify(token);
+      client.data.user = user;
+      this.logger.log(`Client connected: ${client.id} as ${user?.id}`);
+    } catch (error) {
+      this.logger.warn(`Unauthorized client: ${client.id}`);
+      client.emit('unauthorized', { message: 'Invalid or missing token' });
+      client.disconnect();
+    }
   }
 
   handleDisconnect(client: Socket) {
-    this.logger.warn(`Client disconnected: ${client.id}`);
+    this.logger.log(`Client disconnected: ${client.id}`);
   }
 
-  @SubscribeMessage('subscribeToMarket')
-  handleMarketSubscription(client: Socket) {
-    const data = this.marketService.getInitialData();
-    client.emit('marketData', data);
-  }
-
+  /**
+   * ✅ Broadcast market update to all connected clients
+   */
   broadcastMarketUpdate(data: any) {
-    this.server.emit('marketData', data);
+    this.server.emit('marketUpdate', data);
   }
 }
