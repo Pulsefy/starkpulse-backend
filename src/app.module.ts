@@ -18,6 +18,7 @@ import { SessionModule } from './session/session.module';
 import { MarketModule } from './market/market.module';
 import { NewsModule } from './news/news.module';
 import { MarketDataModule } from './market-data/market-data.module';
+import { CacheWarmupService } from './common/cache/cache-warmup.service';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { MarketDataModule } from './market-data/market-data.module';
     NewsModule,
     MarketModule,
   ],
+  providers: [CacheWarmupService],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
