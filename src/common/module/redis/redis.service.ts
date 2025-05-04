@@ -2,9 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { RedisClientType } from 'redis';
 @Injectable()
 export class RedisService {
-  constructor(
-    @Inject('REDIS_CLIENT') private readonly client: RedisClientType,
-  ) {}
+  constructor(@Inject('REDIS_CLIENT') readonly client: RedisClientType) {}
 
   async set(
     key: string,
@@ -26,6 +24,14 @@ export class RedisService {
 
   async delete(key: string): Promise<number> {
     return this.client.del(key);
+  }
+
+  async deletePattern(pattern: string): Promise<number> {
+    const keys = await this.client.keys(pattern);
+    if (keys.length > 0) {
+      return this.client.del(keys);
+    }
+    return 0;
   }
 
   // Set a value in a hash map
@@ -75,5 +81,9 @@ export class RedisService {
   // Delete an entire hash map
   async delHash(hash: string): Promise<number> {
     return this.client.del(hash);
+  }
+
+  async keys(pattern: string): Promise<string[]> {
+    return this.client.keys(pattern);
   }
 }
