@@ -16,6 +16,7 @@ import { UsersModule } from './users/users.module';
 import { PreferencesModule } from './preferences/module/preferences.module';
 import { SessionModule } from './session/session.module';
 import { MarketDataModule } from './market-data/market-data.module';
+import { CacheWarmupService } from './common/cache/cache-warmup.service';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { MarketDataModule } from './market-data/market-data.module';
     EventEmitterModule.forRoot(),
     // Add other modules here as needed
   ],
+  providers: [CacheWarmupService],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
