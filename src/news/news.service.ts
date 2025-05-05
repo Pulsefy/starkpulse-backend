@@ -9,16 +9,18 @@ import { CreateNewsArticleDto } from './dto/create-news-article.dto';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
 import { UpdateNewsArticleDto } from './dto/update-news-article.dto';
 
-
 @Injectable()
 export class NewsService {
   constructor(
     @InjectRepository(NewsArticle)
     private readonly newsRepository: Repository<NewsArticle>,
+
     @InjectRepository(Category)
     private readonly categoryRepository: Repository<Category>,
+
     @InjectRepository(Tag)
     private readonly tagRepository: Repository<Tag>,
+
     @InjectRepository(Author)
     private readonly authorRepository: Repository<Author>,
   ) {}
@@ -28,8 +30,8 @@ export class NewsService {
     Object.assign(article, createNewsArticleDto);
 
     if (createNewsArticleDto.authorId) {
-      const author = await this.authorRepository.findOneBy({ 
-        id: createNewsArticleDto.authorId 
+      const author = await this.authorRepository.findOneBy({
+        id: createNewsArticleDto.authorId,
       });
       if (author) {
         article.author = author;
@@ -37,15 +39,17 @@ export class NewsService {
     }
 
     if (createNewsArticleDto.categoryIds?.length) {
-      article.categories = await this.categoryRepository.findBy({ 
-        id: In(createNewsArticleDto.categoryIds) 
+      const categories = await this.categoryRepository.findBy({
+        id: In(createNewsArticleDto.categoryIds),
       });
+      article.categories = categories;
     }
 
     if (createNewsArticleDto.tagIds?.length) {
-      article.tags = await this.tagRepository.findBy({ 
-        id: In(createNewsArticleDto.tagIds) 
+      const tags = await this.tagRepository.findBy({
+        id: In(createNewsArticleDto.tagIds),
       });
+      article.tags = tags;
     }
 
     return this.newsRepository.save(article);
@@ -54,53 +58,61 @@ export class NewsService {
   async findAll(paginationDto: PaginationDto) {
     const { page = 1, limit = 10, search, category, tag, author } = paginationDto;
     const skip = (page - 1) * limit;
-    
+
     const where: any = {};
-    
+
     if (search) {
       where.title = Like(`%${search}%`);
     }
-    
-    if (category) {
-      where.categories = { id: category };
-    }
-    
-    if (tag) {
-      where.tags = { id: tag };
-    }
-    
+
     if (author) {
       where.author = { id: author };
     }
-    
+
     const [articles, total] = await this.newsRepository.findAndCount({
       where,
       relations: ['author', 'categories', 'tags'],
       skip,
       take: limit,
-      order: { publishedAt: 'DESC' }
+      // order: { publishedAt: 'DESC' },
     });
-    
+
+    // Filter by category and tag manually (due to limitations in nested relations filtering)
+    const filteredArticles = articles.filter((article) => {
+      const categoryMatch = category
+        ? article.categories?.some((cat) => cat.id === +category)
+        : true;
+
+      const tagMatch = tag
+        ? article.tags?.some((t) => t.id === +tag)
+        : true;
+
+      return categoryMatch && tagMatch;
+    });
+
     return {
-      data: articles,
+      data: filteredArticles,
       meta: {
-        total,
+        total: filteredArticles.length,
         page,
         limit,
-        totalPages: Math.ceil(total / limit)
-      }
+        totalPages: Math.ceil(filteredArticles.length / limit),
+      },
     };
   }
 
   async findOne(id: number) {
     return this.newsRepository.findOne({
       where: { id },
-      relations: ['author', 'categories', 'tags']
+      relations: ['author', 'categories', 'tags'],
     });
   }
 
   async update(id: number, updateNewsArticleDto: UpdateNewsArticleDto) {
-    const article = await this.newsRepository.findOneBy({ id });
+    const article = await this.newsRepository.findOne({
+      where: { id },
+      relations: ['categories', 'tags', 'author'],
+    });
     if (!article) {
       return null;
     }
@@ -108,23 +120,23 @@ export class NewsService {
     Object.assign(article, updateNewsArticleDto);
 
     if (updateNewsArticleDto.authorId) {
-      const author = await this.authorRepository.findOneBy({ 
-        id: updateNewsArticleDto.authorId 
+      const author = await this.authorRepository.findOneBy({
+        id: updateNewsArticleDto.authorId,
       });
       if (author) {
         article.author = author;
       }
     }
 
-    if (updateNewsArticleDto.categoryIds) {
-      article.categories = await this.categoryRepository.findBy({ 
-        id: In(updateNewsArticleDto.categoryIds) 
+    if (updateNewsArticleDto.categoryIds?.length) {
+      article.categories = await this.categoryRepository.findBy({
+        id: In(updateNewsArticleDto.categoryIds),
       });
     }
 
-    if (updateNewsArticleDto.tagIds) {
-      article.tags = await this.tagRepository.findBy({ 
-        id: In(updateNewsArticleDto.tagIds) 
+    if (updateNewsArticleDto.tagIds?.length) {
+      article.tags = await this.tagRepository.findBy({
+        id: In(updateNewsArticleDto.tagIds),
       });
     }
 

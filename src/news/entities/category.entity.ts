@@ -1,18 +1,20 @@
-import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToMany,
+} from 'typeorm';
 import { NewsArticle } from './news_articles.entities';
-// import { NewsArticle } from './news-article.entity';
+// import { NewsArticle } from './news_articles.entity';
 
 @Entity()
 export class Category {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ length: 100, unique: true })
+  @Column()
   name: string;
 
-  @Column({ nullable: true })
-  description: string;
-
-  @OneToMany(() => NewsArticle, article => article.categories)
+  @ManyToMany(() => NewsArticle, (article) => article.categories)
   articles: NewsArticle[];
 }
