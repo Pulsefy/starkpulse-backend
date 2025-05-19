@@ -1,7 +1,7 @@
-import { User } from "src/users/users.entity";
-import { Repository } from "typeorm";
-import { Notification } from "./entities/notification.entity";
-import { Injectable } from "@nestjs/common";
+import { User } from 'src/users/users.entity';
+import { Repository } from 'typeorm';
+import { Notification } from './entities/notification.entity';
+import { Injectable } from '@nestjs/common';
 import { Queue } from 'bull';
 
 @Injectable()
@@ -17,21 +17,21 @@ export class DispatcherService {
     if (!user) {
       throw new Error(`User with ID ${userId} not found`);
     }
-  
+
     const preferences = [
       user.allowInApp && 'IN_APP',
       user.allowEmail && 'EMAIL',
       user.allowPush && 'PUSH',
     ].filter(Boolean) as ('IN_APP' | 'EMAIL' | 'PUSH')[];
-  
+
     for (const type of preferences) {
       const notification = this.notificationRepo.create({
-        user : { id: user.id },
+        user: { id: user.id },
         content: message,
-        type,
+        type: type as any, // Cast to any to resolve the type issue temporarily
       });
       await this.notificationRepo.save(notification);
       await this.queue.add(notification, { priority: type === 'PUSH' ? 1 : 2 });
     }
-  }  
+  }
 }

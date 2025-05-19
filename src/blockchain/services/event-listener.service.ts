@@ -1,4 +1,9 @@
-import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleInit,
+  OnModuleDestroy,
+} from '@nestjs/common';
 import { ConfigService } from '../../config/config.service';
 import { StarknetService } from './starknet.service';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -11,7 +16,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 @Injectable()
 export class EventListenerService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(EventListenerService.name);
-  private pollingInterval: NodeJS.Timeout;
+  private pollingInterval: NodeJS.Timeout | undefined;
   private isPolling = false;
 
   constructor(
@@ -57,7 +62,7 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
   stopPolling() {
     if (this.pollingInterval) {
       clearInterval(this.pollingInterval);
-      this.pollingInterval = null;
+      this.pollingInterval = undefined;
       this.logger.log('Event polling stopped');
     }
   }
@@ -74,7 +79,8 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
       }
 
       // Get latest block number
-      const latestBlockNumber = await this.starknetService.getLatestBlockNumber();
+      const latestBlockNumber =
+        await this.starknetService.getLatestBlockNumber();
 
       // Process each contract
       for (const contract of activeContracts) {
@@ -86,20 +92,27 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private async processContractEvents(contract: ContractEntity, latestBlockNumber: number) {
+  private async processContractEvents(
+    contract: ContractEntity,
+    latestBlockNumber: number,
+  ) {
     try {
       // Start from last synced block + 1 or default to latest - 100 blocks if never synced
-      const fromBlock = contract.lastSyncedBlock ? contract.lastSyncedBlock + 1 : Math.max(0, latestBlockNumber - 100);
-      
+      const fromBlock = contract.lastSyncedBlock
+        ? contract.lastSyncedBlock + 1
+        : Math.max(0, latestBlockNumber - 100);
+
       // Don't process if already up to date
       if (fromBlock > latestBlockNumber) {
         return;
       }
-      
+
       // Limit blocks per fetch to avoid large requests
       const toBlock = Math.min(fromBlock + 50, latestBlockNumber);
-      
-      this.logger.debug(`Processing events for contract ${contract.address} from block ${fromBlock} to ${toBlock}`);
+
+      this.logger.debug(
+        `Processing events for contract ${contract.address} from block ${fromBlock} to ${toBlock}`,
+      );
 
       // Get events for this contract in the block range
       const events = await this.starknetService.getEvents({
@@ -109,22 +122,27 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
       });
 
       // Filter events based on monitoredEvents if configured
-      const filteredEvents = contract.monitoredEvents && contract.monitoredEvents.length > 0
-        ? events.filter(event => {
-            // Try to parse event name from keys
-            const eventName = this.parseEventName(event);
-            return eventName && contract.monitoredEvents.includes(eventName);
-          })
-        : events;
+      const filteredEvents =
+        contract.monitoredEvents && contract.monitoredEvents.length > 0
+          ? events.filter((event) => {
+              // Try to parse event name from keys
+              const eventName = this.parseEventName(event);
+              return eventName && contract.monitoredEvents.includes(eventName);
+            })
+          : events;
 
       if (filteredEvents.length > 0) {
         await this.saveEvents(contract, filteredEvents);
       }
 
       // Update last synced block for this contract
-      await this.contractRepository.update(contract.id, { lastSyncedBlock: toBlock });
+      await this.contractRepository.update(contract.id, {
+        lastSyncedBlock: toBlock,
+      });
     } catch (error) {
-      this.logger.error(`Failed to process events for contract ${contract.address}: ${error.message}`);
+      this.logger.error(
+        `Failed to process events for contract ${contract.address}: ${error.message}`,
+      );
       throw error;
     }
   }
@@ -144,11 +162,14 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private async saveEvents(contract: ContractEntity, events: StarknetEmittedEvent[]) {
+  private async saveEvents(
+    contract: ContractEntity,
+    events: StarknetEmittedEvent[],
+  ) {
     for (const event of events) {
       try {
         const eventName = this.parseEventName(event) || 'UnknownEvent';
-        
+
         const eventEntity = this.eventRepository.create({
           name: eventName,
           contractId: contract.id,
@@ -161,9 +182,9 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
           transactionHash: event.transaction_hash,
           isProcessed: false,
         });
-        
+
         await this.eventRepository.save(eventEntity);
-        
+
         // Emit event for further processing
         this.eventEmitter.emit('contract.event', {
           eventId: eventEntity.id,
@@ -171,8 +192,10 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
           eventName,
           blockNumber: event.block_number,
         });
-        
-        this.logger.debug(`Saved event ${eventName} for contract ${contract.address} at block ${event.block_number}`);
+
+        this.logger.debug(
+          `Saved event ${eventName} for contract ${contract.address} at block ${event.block_number}`,
+        );
       } catch (error) {
         this.logger.error(`Failed to save event: ${error.message}`);
       }
@@ -184,18 +207,19 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
       const contract = await this.contractRepository.findOne({
         where: { id: contractId },
       });
-      
+
       if (!contract) {
         throw new Error(`Contract with ID ${contractId} not found`);
       }
-      
-      const latestBlockNumber = await this.starknetService.getLatestBlockNumber();
+
+      const latestBlockNumber =
+        await this.starknetService.getLatestBlockNumber();
       await this.processContractEvents(contract, latestBlockNumber);
-      
+
       return { success: true, message: 'Manual sync completed successfully' };
     } catch (error) {
       this.logger.error(`Manual sync failed: ${error.message}`);
       throw error;
     }
   }
-} 
+}

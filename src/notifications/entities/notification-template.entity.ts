@@ -1,16 +1,37 @@
-import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 
-@Entity()
+@Entity('notification_templates')
 export class NotificationTemplate {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
   @Column()
-  type: 'transaction' | 'price_alert' | 'news_update'; // Define types here
+  name: string;
+
+  @Column()
+  title: string;
 
   @Column('text')
-  template: string; // Store the template content
+  content: string;
 
-  @Column('text', { nullable: true })
-  subject: string; // Optional field for email subject
+  @Column({ nullable: true })
+  description?: string;
+
+  @Column({ default: true })
+  isActive: boolean;
+
+  @Column('jsonb', { nullable: true })
+  metadata?: Record<string, any>;
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
 }

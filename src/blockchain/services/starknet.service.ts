@@ -9,7 +9,8 @@ import {
   InvokeFunctionResponse,
   num,
 } from 'starknet';
-import retry from 'ts-retry-promise';
+import * as retryModule from 'ts-retry-promise';
+const { retry } = retryModule;
 import {
   StarknetEmittedEvent,
   EventFilter,
@@ -18,13 +19,12 @@ import {
 @Injectable()
 export class StarknetService implements OnModuleInit {
   private readonly logger = new Logger(StarknetService.name);
-  private provider: Provider;
+  private provider: RpcProvider;
 
-  constructor(private configService: ConfigService) {
-    this.initializeProvider();
-  }
+  constructor(private configService: ConfigService) {}
 
   async onModuleInit() {
+    this.initializeProvider();
     try {
       await this.provider.getBlock('latest');
       this.logger.log('StarkNet RPC provider is reachable.');
@@ -33,22 +33,16 @@ export class StarknetService implements OnModuleInit {
     }
   }
 
-  private initializeProvider(): void {
+  private initializeProvider() {
     try {
+      // Use get method instead of direct property access
       const providerUrl = this.configService.get<string>('STARKNET_NODE_URL');
-      const network = this.configService.get<string>(
-        'STARKNET_NETWORK',
-        'testnet',
-      );
+
       this.provider = new RpcProvider({
         nodeUrl: providerUrl,
-        chainId:
-          network === 'mainnet'
-            ? constants.StarknetChainId.SN_MAIN
-            : constants.StarknetChainId.SN_GOERLI,
       });
 
-      this.logger.log(`StarkNet provider initialized for ${network}`);
+      this.logger.log(`StarkNet provider initialized with URL: ${providerUrl}`);
     } catch (error) {
       this.logger.error(
         `Failed to initialize StarkNet provider: ${error.message}`,
@@ -57,7 +51,7 @@ export class StarknetService implements OnModuleInit {
     }
   }
 
-  public getProvider(): Provider {
+  public getProvider(): RpcProvider {
     return this.provider;
   }
 
@@ -96,6 +90,7 @@ export class StarknetService implements OnModuleInit {
           to_block: toBlock ? { block_number: toBlock } : 'latest',
           address: contractAddresses?.[0],
           keys: [],
+          chunk_size: 100, // Add the required chunk_size parameter
         });
 
         return events.events.map((event) => ({
@@ -153,7 +148,8 @@ export class StarknetService implements OnModuleInit {
   ): Promise<string> {
     try {
       const contract = new Contract(abi, contractAddress, this.provider);
-      const { balance } = await contract.call('balanceOf', [userAddress]);
+      const result = await contract.call('balanceOf', [userAddress]);
+      const balance = result[0]; // Access the first element of the result array
       return num.toHex(balance);
     } catch (error) {
       this.logger.error(

@@ -32,11 +32,11 @@ export class PriceService implements OnModuleInit {
 
     private readonly priceFetcher: PriceFetcherService,
 
-    private readonly notificationService:NotificationsService,
+    private readonly notificationService: NotificationsService,
 
     private httpService: HttpService,
 
-    private configService: ConfigService
+    private configService: ConfigService,
   ) {}
   create(createPriceDto: CreatePriceDto) {
     return 'This action adds a new price';
@@ -279,7 +279,9 @@ export class PriceService implements OnModuleInit {
     });
 
     for (const alert of alerts) {
-      const currentPrice = await this.priceFetcher.getTokenPrice(alert.tokenSymbol);
+      const currentPrice = await this.priceFetcher.getTokenPrice(
+        alert.tokenSymbol,
+      );
 
       const shouldTrigger =
         (alert.direction === 'above' && currentPrice > alert.threshold) ||
@@ -288,9 +290,10 @@ export class PriceService implements OnModuleInit {
       if (shouldTrigger) {
         await this.notificationService.send({
           userId: alert.userId,
-          title: `Price Alert: ${alert.tokenSymbol}`,
-          content: `${alert.tokenSymbol} is now ${currentPrice}, which is ${alert.direction} your threshold of ${alert.threshold}.`,
+          title: `Price Alert: ${alert.tokenSymbol} ${alert.direction === 'above' ? 'above' : 'below'} ${alert.threshold}`,
+          content: `${alert.tokenSymbol} price is now ${currentPrice}, which is ${alert.direction === 'above' ? 'above' : 'below'} your threshold of ${alert.threshold}.`,
           channel: 'in_app',
+          type: 'price_alert', // Add the missing type property
           metadata: {
             token: alert.tokenSymbol,
             threshold: alert.threshold,
@@ -302,9 +305,10 @@ export class PriceService implements OnModuleInit {
         alert.triggered = true;
         await this.priceAlertRepo.save(alert);
 
-        this.logger.log(`Triggered price alert for ${alert.userId} on ${alert.tokenSymbol}`);
+        this.logger.log(
+          `Triggered price alert for ${alert.userId} on ${alert.tokenSymbol}`,
+        );
       }
     }
   }
-
 }

@@ -1,11 +1,25 @@
-import { Controller, Get, Post, Body, Param, Query, Delete, Put, Logger } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Query,
+  Delete,
+  Put,
+  Logger,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, FindOptionsWhere } from 'typeorm';
 import { ContractEntity } from '../entities/contract.entity';
 import { EventEntity } from '../entities/event.entity';
 import { EventListenerService } from '../services/event-listener.service';
 import { EventProcessorService } from '../services/event-processor.service';
-import { CreateContractDto, UpdateContractDto, ContractFilterDto } from '../dto/contract.dto';
+import {
+  CreateContractDto,
+  UpdateContractDto,
+  ContractFilterDto,
+} from '../dto/contract.dto';
 import { EventFilterDto } from '../dto/event.dto';
 
 @Controller('blockchain/events')
@@ -22,7 +36,7 @@ export class EventController {
   ) {}
 
   // Contract Management Endpoints
-  
+
   @Post('contracts')
   async createContract(@Body() createContractDto: CreateContractDto) {
     try {
@@ -39,20 +53,20 @@ export class EventController {
   async getContracts(@Query() filterDto: ContractFilterDto) {
     try {
       const where: FindOptionsWhere<ContractEntity> = {};
-      
+
       if (filterDto.address) {
         where.address = filterDto.address;
       }
-      
+
       if (filterDto.isActive !== undefined) {
         where.isActive = filterDto.isActive;
       }
-      
+
       const contracts = await this.contractRepository.find({
         where,
         order: { createdAt: 'DESC' },
       });
-      
+
       return contracts;
     } catch (error) {
       this.logger.error(`Failed to get contracts: ${error.message}`);
@@ -66,11 +80,11 @@ export class EventController {
       const contract = await this.contractRepository.findOne({
         where: { id },
       });
-      
+
       if (!contract) {
         throw new Error(`Contract with ID ${id} not found`);
       }
-      
+
       return contract;
     } catch (error) {
       this.logger.error(`Failed to get contract: ${error.message}`);
@@ -84,7 +98,16 @@ export class EventController {
     @Body() updateContractDto: UpdateContractDto,
   ) {
     try {
-      await this.contractRepository.update(id, updateContractDto);
+      // Convert the DTO to a proper entity partial
+      const updateData = {
+        ...updateContractDto,
+        // If abi is a string, ensure it's properly handled
+        abi: updateContractDto.abi
+          ? JSON.parse(updateContractDto.abi)
+          : undefined,
+      };
+
+      await this.contractRepository.update(id, updateData);
       return this.getContract(id);
     } catch (error) {
       this.logger.error(`Failed to update contract: ${error.message}`);
@@ -96,7 +119,12 @@ export class EventController {
   async deleteContract(@Param('id') id: string) {
     try {
       const result = await this.contractRepository.delete(id);
-      return { success: result.affected > 0 };
+      return {
+        success:
+          result.affected !== undefined &&
+          result.affected !== null &&
+          result.affected > 0,
+      };
     } catch (error) {
       this.logger.error(`Failed to delete contract: ${error.message}`);
       throw error;
@@ -104,38 +132,38 @@ export class EventController {
   }
 
   // Event Management Endpoints
-  
+
   @Get('list')
   async getEvents(@Query() filterDto: EventFilterDto) {
     try {
       const where: FindOptionsWhere<EventEntity> = {};
-      
+
       if (filterDto.contractId) {
         where.contractId = filterDto.contractId;
       }
-      
+
       if (filterDto.name) {
         where.name = filterDto.name;
       }
-      
+
       if (filterDto.isProcessed !== undefined) {
         where.isProcessed = filterDto.isProcessed;
       }
-      
+
       if (filterDto.fromBlockNumber) {
         where.blockNumber = { $gte: filterDto.fromBlockNumber } as any;
       }
-      
+
       if (filterDto.toBlockNumber) {
-        where.blockNumber = { 
-          ...where.blockNumber as object,
-          $lte: filterDto.toBlockNumber 
+        where.blockNumber = {
+          ...(where.blockNumber as object),
+          $lte: filterDto.toBlockNumber,
         } as any;
       }
-      
+
       const limit = filterDto.limit || 50;
       const offset = filterDto.offset || 0;
-      
+
       const events = await this.eventRepository.find({
         where,
         take: limit,
@@ -143,9 +171,9 @@ export class EventController {
         order: { blockNumber: 'DESC', createdAt: 'DESC' },
         relations: ['contract'],
       });
-      
+
       const total = await this.eventRepository.count({ where });
-      
+
       return {
         events,
         pagination: {
@@ -167,11 +195,11 @@ export class EventController {
         where: { id },
         relations: ['contract'],
       });
-      
+
       if (!event) {
         throw new Error(`Event with ID ${id} not found`);
       }
-      
+
       return event;
     } catch (error) {
       this.logger.error(`Failed to get event: ${error.message}`);
@@ -180,7 +208,7 @@ export class EventController {
   }
 
   // Event Monitoring Control
-  
+
   @Post('contracts/:id/sync')
   async syncContract(@Param('id') id: string) {
     try {
@@ -194,7 +222,8 @@ export class EventController {
   @Post('process-pending')
   async processPendingEvents() {
     try {
-      const processedCount = await this.eventProcessorService.processUnprocessedEvents();
+      const processedCount =
+        await this.eventProcessorService.processUnprocessedEvents();
       return {
         success: true,
         processedCount,

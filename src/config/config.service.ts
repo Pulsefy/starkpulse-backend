@@ -4,7 +4,8 @@ import {
   DatabaseConfig,
   JwtConfig,
   CryptoConfig,
-  StarknetConfig, AppConfig,
+  StarknetConfig,
+  AppConfig,
   SessionConfig,
 } from './interfaces/config.interface';
 import { StarkNetConfig } from './interfaces/starknet-config.interface';
@@ -109,7 +110,8 @@ export class ConfigService {
     return secret;
   }
 
-  get starknetConfig(): StarkNetConfig {
+  // Rename this to avoid duplicate
+  get starknetNetworkConfig(): StarkNetConfig {
     const network = this.configService.get<'mainnet' | 'testnet' | 'devnet'>(
       'STARKNET_NETWORK',
       'testnet',

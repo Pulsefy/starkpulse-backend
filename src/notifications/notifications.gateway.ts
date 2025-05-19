@@ -118,8 +118,10 @@ export class NotificationsGateway
       const payload = this.jwtService.verify(token);
       const userId = payload.sub;
 
-      const notifications =
-        await this.notificationsService.getNotifications(userId);
+      const notifications = await this.notificationsService.findAll(
+        userId,
+        data,
+      );
       return { notifications };
     } catch (error) {
       this.logger.error(`Error getting notifications: ${error.message}`);
@@ -160,7 +162,10 @@ export class NotificationsGateway
     @MessageBody() notificationId: string,
   ) {
     try {
-      await this.notificationsService.markRead(notificationId);
+      await this.notificationsService.markAsRead(
+        notificationId,
+        client.data.userId,
+      );
       return { success: true };
     } catch (error) {
       this.logger.error(`Error marking notification read: ${error.message}`);

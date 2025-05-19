@@ -107,41 +107,94 @@ export class PortfolioService {
     return { message: 'Deleted successfully' };
   }
 
-  async getUserAnalytics(userId: string) {
+  async getUserAnalytics(userId: string): Promise<any> {
+    // Get user's portfolio
+    const portfolio = await this.getUserPortfolio(userId);
+
+    // Calculate total value
+    const totalValue = portfolio.reduce(
+      (sum, asset) => sum + asset.valueUsd,
+      0,
+    );
+
+    // Get historical data
+    const historicalData = await this.getHistoricalPortfolioValue(userId);
+
+    // Calculate performance metrics
+    const performance = this.calculatePerformanceMetrics(historicalData);
+
+    return {
+      totalValue,
+      assetCount: portfolio.length,
+      performance,
+      historicalData,
+    };
+  }
+
+  private calculatePerformanceMetrics(historicalData: any[]): any {
+    if (historicalData.length < 2) {
+      return {
+        dailyChange: 0,
+        weeklyChange: 0,
+        monthlyChange: 0,
+      };
+    }
+
+    const latest = historicalData[historicalData.length - 1].value;
+    const yesterday = historicalData[historicalData.length - 2].value;
+
+    // Find data points for week and month ago
+    const weekAgoIndex = historicalData.findIndex(
+      (data) =>
+        new Date(data.date) <= new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+    );
+    const monthAgoIndex = historicalData.findIndex(
+      (data) =>
+        new Date(data.date) <= new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+    );
+
+    const weekAgo =
+      weekAgoIndex >= 0 ? historicalData[weekAgoIndex].value : latest;
+    const monthAgo =
+      monthAgoIndex >= 0 ? historicalData[monthAgoIndex].value : latest;
+
+    return {
+      dailyChange: yesterday ? ((latest - yesterday) / yesterday) * 100 : 0,
+      weeklyChange: weekAgo ? ((latest - weekAgo) / weekAgo) * 100 : 0,
+      monthlyChange: monthAgo ? ((latest - monthAgo) / monthAgo) * 100 : 0,
+    };
+  }
+
+  async getUserPortfolio(userId: string): Promise<any[]> {
+    // Implementation needed - placeholder for now
+    return []; // Return empty array as placeholder
+  }
+
+  async getHistoricalPortfolioValue(userId: string): Promise<any[]> {
     const snapshots = await this.snapshotRepo.find({
       where: { user: { id: userId } },
       order: { createdAt: 'ASC' },
     });
-  
+
     if (!snapshots.length) throw new NotFoundException('No snapshots found');
-  
+
     const values = snapshots.map((s) => s.totalValue);
     const initial = values[0];
     const latest = values[values.length - 1];
-  
+
     const roi = calculateROI(initial, latest);
     const volatility = calculateVolatility(values);
     const twr = calculateTimeWeightedReturn(values);
-  
+
     // Example benchmark (BTC)
     const benchmark = {
       name: 'Bitcoin',
       roi: calculateROI(30000, 50000), // simulate BTC from $30k to $50k
     };
-  
-    return {
-      userId,
-      dataPoints: snapshots.map((s) => ({
-        timestamp: s.createdAt,
-        value: s.totalValue,
-      })),
-      metrics: {
-        roi,
-        volatility,
-        timeWeightedReturn: twr,
-      },
-      benchmarkComparison: benchmark,
-    };
+
+    return snapshots.map((s) => ({
+      date: s.createdAt,
+      value: s.totalValue,
+    }));
   }
-  
 }

@@ -1,9 +1,9 @@
-import { Injectable } from "@nestjs/common";
-import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
-import { NewsUpdate } from "./entities/news-update.entity";
-import { NewsInterest } from "./entities/news-interest.entity";
-import { NotificationsService } from "src/notifications/notifications.service";
+import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { NewsUpdate } from './entities/news-update.entity';
+import { NewsInterest } from './entities/news-interest.entity';
+import { NotificationsService } from 'src/notifications/notifications.service';
 
 @Injectable()
 export class NewsService {
@@ -13,7 +13,7 @@ export class NewsService {
 
     @InjectRepository(NewsInterest)
     private readonly interestRepo: Repository<NewsInterest>,
-    
+
     private readonly notificationsService: NotificationsService,
   ) {}
 
@@ -26,7 +26,9 @@ export class NewsService {
     await this.newsRepo.save(news);
 
     // Get all users interested in this category
-    const interestedUsers = await this.interestRepo.find({ where: { category } });
+    const interestedUsers = await this.interestRepo.find({
+      where: { category },
+    });
 
     // Send a notification to each user
     for (const user of interestedUsers) {
@@ -36,6 +38,7 @@ export class NewsService {
         content: content,
         channel: 'in_app',
         metadata: { category },
+        type: 'news_update', // Add the required type field
       });
     }
 

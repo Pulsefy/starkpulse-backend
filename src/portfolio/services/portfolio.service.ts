@@ -294,4 +294,48 @@ export class PortfolioService {
     // Skeleton implementation for now
     this.logger.log(`Notifying user ${userId} about portfolio update`);
   }
+
+  async getUserAnalytics(userId: string): Promise<any> {
+    // Implementation similar to the one in portfolio.service.ts
+    const portfolio = await this.getUserPortfolio(userId, {});
+
+    // Calculate total value
+    let totalValueUsd = '0';
+    if (portfolio && portfolio.assets) {
+      totalValueUsd = portfolio.totalValueUsd;
+    }
+
+    // Get historical data
+    const historicalData = await this.getPortfolioHistory(userId, 30);
+
+    // Calculate performance metrics
+    const performance = this.calculatePerformanceMetrics(historicalData);
+
+    return {
+      totalValueUsd,
+      assetCount: portfolio?.assets?.length || 0,
+      performance,
+      historicalData,
+    };
+  }
+
+  private calculatePerformanceMetrics(historicalData: any[]): any {
+    // Implementation similar to the one in portfolio.service.ts
+    if (historicalData.length < 2) {
+      return {
+        dailyChange: 0,
+        weeklyChange: 0,
+        monthlyChange: 0,
+      };
+    }
+
+    // Calculate metrics based on historical data
+    // ... implementation details ...
+
+    return {
+      dailyChange: 0, // Replace with actual calculation
+      weeklyChange: 0, // Replace with actual calculation
+      monthlyChange: 0, // Replace with actual calculation
+    };
+  }
 }
