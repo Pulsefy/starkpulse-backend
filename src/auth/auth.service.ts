@@ -16,6 +16,7 @@ import { UpdateAuthDto } from './dto/update-auth.dto';
 
 @Injectable()
 export class AuthService {
+  verifyJwt: any;
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
