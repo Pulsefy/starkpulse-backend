@@ -24,4 +24,16 @@ export class Preferences {
 
   @Column({ default: true })
   syncAcrossDevices: boolean;
+
+  @Column({ default: 'en' })
+  language: string;
+
+  @Column({ type: 'json', default: '{"email":true,"push":true}' })
+  notificationPreferences: Record<string, boolean>;
+
+  @Column({ type: 'json', nullable: true })
+  dashboardLayout: any;
+
+  @Column({ type: 'json', default: '{}' })
+  betaFeatures: Record<string, boolean>;
 }
