@@ -29,7 +29,7 @@ export class Session {
   expiresAt: Date;
 
   @Column({ nullable: true })
-  walletAddress: string;
+  walletAddress?: string;
 
   @Column({ type: 'jsonb' })
   deviceInfo: {
@@ -44,12 +44,16 @@ export class Session {
   @Column({ default: true })
   isActive: boolean;
 
-  @Column({ nullable: true })
+  @Column({ type: 'timestamp', nullable: false, default: () => 'CURRENT_TIMESTAMP' })
   lastActiveAt: Date;
+
+  @Column({ default: false })
+  revoked: boolean;  // <--- This is the key addition
 
   @CreateDateColumn()
   createdAt: Date;
 
   @UpdateDateColumn()
   updatedAt: Date;
+  ipAddress: any;
 }
