@@ -18,13 +18,13 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { TransactionService } from './providers/transactions.service';
-import { CreateTransactionDto } from 'src/transactions/dto/create-transaction.dto';
-import { UpdateTransactionDto } from 'src/transactions/dto/update-transaction.dto';
-import { SearchTransactionsDto } from 'src/transactions/dto/search-transactions.dto';
+import { CreateTransactionDto } from '../transactions/dto/create-transaction.dto';
+import { UpdateTransactionDto } from '../transactions/dto/update-transaction.dto';
+import { SearchTransactionsDto } from '../transactions/dto/search-transactions.dto';
 import { Transaction } from './entities/transaction.entity';
-import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
-import { GetUser } from 'src/auth/decorator/get-user.decorator';
-import { User } from 'src/users/users.entity';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { GetUser } from '../auth/decorator/get-user.decorator';
+import { User } from '../users/users.entity';
 
 @ApiTags('transactions')
 @Controller('transactions')

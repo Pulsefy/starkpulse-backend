@@ -47,13 +47,21 @@ export class CreateNotificationDto {
   priority?: NotificationPriority
 
   @ApiPropertyOptional({
-    description: "The channel to send the notification through",
-    enum: ["in_app", "email", "push"],
-    default: "in_app",
+    description: 'The channel to send the notification through',
+    enum: ['in_app', 'email', 'push', 'sms'],
+    default: 'in_app',
   })
   @IsString()
   @IsOptional()
-  channel?: "in_app" | "email" | "push"
+  channel?: 'in_app' | 'email' | 'push' | 'sms';
+
+  @ApiPropertyOptional({
+    description: 'Which template to use (filename without extension)',
+    example: 'transaction_confirmed',
+  })
+  @IsString()
+  @IsOptional()
+  templateKey?: string;
 
   @ApiPropertyOptional({
     description: "Additional metadata for the notification",

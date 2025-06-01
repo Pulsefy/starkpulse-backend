@@ -6,8 +6,8 @@ import {
     ManyToOne,
     JoinColumn,
   } from 'typeorm';
-  import { User } from 'src/auth/entities/user.entity';
-  import { Transaction } from 'src/transactions/entities/transaction.entity';
+  import { User } from '../../auth/entities/user.entity';
+  import { Transaction } from '../../transactions/entities/transaction.entity';
   
   @Entity()
   export class TransactionNotification {
