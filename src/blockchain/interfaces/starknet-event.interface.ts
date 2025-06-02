@@ -21,4 +21,4 @@ export interface EventFilter {
   eventNames?: string[];
   fromBlock?: number;
   toBlock?: number;
-} 
+}

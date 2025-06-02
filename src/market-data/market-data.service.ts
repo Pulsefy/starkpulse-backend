@@ -15,7 +15,9 @@ export class MarketDataService {
 
   async fetchAndStoreMarketData(): Promise<void> {
     try {
-      const res = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd');
+      const res = await axios.get(
+        'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd',
+      );
 
       const now = new Date();
       const entries = Object.entries(res.data).map(([symbol, data]: any) => ({
