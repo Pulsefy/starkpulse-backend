@@ -19,6 +19,14 @@ import { MarketModule } from './market/market.module';
 import { NewsModule } from './news/news.module';
 import { MarketDataModule } from './market-data/market-data.module';
 import { CacheWarmupService } from './common/cache/cache-warmup.service';
+import { CacheModule } from '@nestjs/cache-manager';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import configuration from './config/configuration';
+import { RateLimitModule } from './common/module/rate-limit.module';
+import { RateLimitMiddleware } from './common/middleware/rate-limit.middleware';
+import { RateLimitGuard } from './common/guards/rate-limit.guard';
+import { RateLimitLoggingInterceptor } from './common/interceptors/rate-limit-logging.interceptor';
 
 @Module({
   imports: [
@@ -29,6 +37,28 @@ import { CacheWarmupService } from './common/cache/cache-warmup.service';
     }),
     ScheduleModule.forRoot(),
     EventEmitterModule.forRoot(),
+    CacheModule.register({
+    isGlobal: true,
+    }),
+    ThrottlerModule.forRoot({
+      ttl: 60,
+      limit: 1000,
+    }),
+    RateLimitModule.forRoot(),
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: RateLimitGuard,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: RateLimitLoggingInterceptor,
+    },
     DatabaseModule,
     HealthModule,
     AuthModule,
@@ -44,11 +74,13 @@ import { CacheWarmupService } from './common/cache/cache-warmup.service';
     MarketDataModule,
     NewsModule,
     MarketModule,
+    CacheWarmupService,
   ],
-  providers: [CacheWarmupService],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer.apply(RequestLoggerMiddleware).forRoutes('*');
+    consumer.apply(RateLimitMiddleware).forRoutes('*'); 
+
   }
 }
