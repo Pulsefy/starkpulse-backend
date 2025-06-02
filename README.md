@@ -768,3 +768,70 @@ npm run test:e2e
 3. Monitor for unusual authentication patterns
 4. Regularly update dependencies
 5. Follow StarkNet security best practices
+## Security Features
+
+The StarkPulse backend implements several security measures to protect against common vulnerabilities and ensure the platform's integrity:
+
+### Input Validation
+
+- **Comprehensive Validation**: All API endpoints use a custom validation pipe that leverages class-validator to ensure data integrity
+- **Whitelist Validation**: Only explicitly allowed properties are processed, preventing parameter pollution attacks
+- **Detailed Error Responses**: Validation errors return clear, structured feedback without exposing sensitive information
+
+### CSRF Protection
+
+- **Token-based Protection**: Implements a double-submit cookie pattern to prevent Cross-Site Request Forgery attacks
+- **Path Exclusions**: Certain endpoints (like webhooks and wallet authentication) are excluded from CSRF checks
+- **Safe Methods**: GET, HEAD, and OPTIONS requests are exempt from CSRF validation
+
+### Rate Limiting
+
+- **Authentication Protection**: Login and signup endpoints have strict rate limits to prevent brute force attacks
+- **IP-based Tracking**: Rate limits are tracked by IP address and endpoint
+- **Configurable Limits**: Different endpoints can have customized rate limit configurations
+
+### Security Headers
+
+- **Content Security Policy (CSP)**: Restricts resource loading to trusted sources
+- **X-XSS-Protection**: Enables browser's built-in XSS filtering
+- **X-Frame-Options**: Prevents clickjacking by disallowing framing
+- **Strict-Transport-Security (HSTS)**: Enforces HTTPS connections
+- **X-Content-Type-Options**: Prevents MIME type sniffing
+- **Referrer-Policy**: Controls information sent in the Referer header
+- **Permissions-Policy**: Restricts browser feature usage
+
+### Security Scanning
+
+- **Automated Scanning**: CI/CD pipeline includes security scanning for early vulnerability detection
+- **Dependency Auditing**: npm audit checks for vulnerable dependencies
+- **Static Analysis**: ESLint with security plugins analyzes code for potential vulnerabilities
+- **OWASP ZAP**: API endpoints are scanned for OWASP Top 10 vulnerabilities
+- **Snyk Integration**: Continuous monitoring for new vulnerabilities in dependencies
+
+### Implementation
+
+Security features are implemented as middleware and guards in the NestJS application:
+
+```typescript
+// Security headers middleware application
+consumer
+  .apply(SecurityHeadersMiddleware)
+  .forRoutes('*');
+
+// CSRF protection with exclusions
+consumer
+  .apply(CsrfMiddleware)
+  .exclude(
+    { path: 'api/health', method: RequestMethod.ALL },
+    { path: 'api/auth/wallet/nonce', method: RequestMethod.POST },
+    { path: 'api/auth/wallet/verify', method: RequestMethod.POST }
+  )
+  .forRoutes('*');
+
+// Rate limiting on authentication endpoints
+@Post('login')
+@HttpCode(HttpStatus.OK)
+@UseGuards(RateLimitGuard)
+@RateLimit({ points: 10, duration: 3600 })
+async login(@Body() loginDto: LoginDto) { ... }
+```

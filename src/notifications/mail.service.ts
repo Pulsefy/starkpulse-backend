@@ -26,14 +26,15 @@ export class MailService {
     let template = fs.readFileSync(templatePath, 'utf8');
 
     // Replace the placeholders with dynamic content
-    template = template.replace('{{user_name}}', notification.user.name || 'User')
-                       .replace('{{content}}', notification.content);
+    template = template
+      .replace('{{user_name}}', notification.user.name || 'User')
+      .replace('{{content}}', notification.content);
 
     const mailOptions = {
       from: '"StarkPulse" <no-reply@starkpulse.com>',
       to: notification.user.email,
       subject: 'You have a new notification',
-      text: template,  // Send the email as plain text
+      text: template, // Send the email as plain text
     };
 
     try {
