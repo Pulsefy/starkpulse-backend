@@ -9,6 +9,7 @@ import {
 } from 'typeorm';
 import { User } from '../../users/users.entity';
 
+
 @Entity()
 export class NotificationPreference {
   @PrimaryGeneratedColumn('uuid')

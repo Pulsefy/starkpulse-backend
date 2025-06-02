@@ -1,8 +1,19 @@
-import { Controller, Get, Post, Delete, Param, UseGuards, Req, HttpCode, HttpStatus, Res } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Delete,
+  Param,
+  UseGuards,
+  Req,
+  HttpCode,
+  HttpStatus,
+  Res,
+} from '@nestjs/common';
 import { SessionService } from './session.service';
 import { Request, Response } from 'express';
 import { GetUser } from '../auth/decorator/get-user.decorator';
-import { JwtAuthGuard } from "../auth/guards/jwt-auth.guards"
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guards';
 
 @Controller('sessions')
 export class SessionController {
@@ -24,11 +35,11 @@ export class SessionController {
   @HttpCode(HttpStatus.OK)
   async refreshToken(@Req() req: Request) {
     const refreshToken = req.body?.refreshToken;
-    
+
     if (!refreshToken) {
       return { message: 'Refresh token is required' };
     }
-    
+
     return this.sessionService.refreshToken(refreshToken, req);
   }
 
@@ -63,7 +74,7 @@ export class SessionController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async logout(@Req() req: Request) {
     const refreshToken = req.body?.refreshToken;
-    
+
     if (refreshToken) {
       await this.sessionService.logout(refreshToken);
     }

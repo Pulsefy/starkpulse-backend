@@ -41,7 +41,7 @@ const mockSessions = [
     },
     lastActiveAt: new Date(),
     createdAt: new Date(),
-  }
+  },
 ];
 
 describe('SessionController', () => {
@@ -61,7 +61,7 @@ describe('SessionController', () => {
 
     controller = module.get<SessionController>(SessionController);
     service = module.get<SessionService>(SessionService);
-    
+
     // Clear all mocks before each test
     jest.clearAllMocks();
   });
@@ -74,13 +74,15 @@ describe('SessionController', () => {
     it('should return active sessions for the current user', async () => {
       // Arrange
       mockSessionService.getUserSessions.mockResolvedValue(mockSessions);
-      
+
       // Act
       const result = await controller.getUserSessions(mockUser);
-      
+
       // Assert
       expect(result.length).toBe(2);
-      expect(mockSessionService.getUserSessions).toHaveBeenCalledWith(mockUser.id);
+      expect(mockSessionService.getUserSessions).toHaveBeenCalledWith(
+        mockUser.id,
+      );
       expect(result[0]).toHaveProperty('id');
       expect(result[0]).toHaveProperty('deviceInfo');
       expect(result[0]).toHaveProperty('lastActiveAt');
@@ -88,20 +90,24 @@ describe('SessionController', () => {
   });
 
   describe('refreshToken', () => {
-
     it('should use refresh token from body if not in cookies', async () => {
       // Arrange
       const mockRequest = {
         cookies: {},
         body: { refreshToken: 'valid-refresh-token' },
       };
-      mockSessionService.refreshToken.mockResolvedValue({ accessToken: 'new-access-token' });
-      
+      mockSessionService.refreshToken.mockResolvedValue({
+        accessToken: 'new-access-token',
+      });
+
       // Act
       const result = await controller.refreshToken(mockRequest as any);
-      
+
       // Assert
-      expect(mockSessionService.refreshToken).toHaveBeenCalledWith('valid-refresh-token', mockRequest);
+      expect(mockSessionService.refreshToken).toHaveBeenCalledWith(
+        'valid-refresh-token',
+        mockRequest,
+      );
     });
 
     it('should return error message if no refresh token provided', async () => {
@@ -110,10 +116,10 @@ describe('SessionController', () => {
         cookies: {},
         body: {},
       };
-      
+
       // Act
       const result = await controller.refreshToken(mockRequest as any);
-      
+
       // Assert
       expect(result).toHaveProperty('message', 'Refresh token is required');
       expect(mockSessionService.refreshToken).not.toHaveBeenCalled();
@@ -124,12 +130,15 @@ describe('SessionController', () => {
     it('should revoke a specific session', async () => {
       // Arrange
       mockSessionService.revokeSession.mockResolvedValue(undefined);
-      
+
       // Act
       await controller.revokeSession('1', mockUser);
-      
+
       // Assert
-      expect(mockSessionService.revokeSession).toHaveBeenCalledWith('1', mockUser.id);
+      expect(mockSessionService.revokeSession).toHaveBeenCalledWith(
+        '1',
+        mockUser.id,
+      );
     });
   });
 
@@ -137,13 +146,15 @@ describe('SessionController', () => {
     it('should revoke all other sessions', async () => {
       // Arrange
       mockSessionService.revokeAllOtherSessions.mockResolvedValue(undefined);
-      
+
       // Act
       await controller.revokeAllOtherSessions('current-id', mockUser);
-      
+
       // Assert
-      expect(mockSessionService.revokeAllOtherSessions).toHaveBeenCalledWith(mockUser.id, 'current-id');
+      expect(mockSessionService.revokeAllOtherSessions).toHaveBeenCalledWith(
+        mockUser.id,
+        'current-id',
+      );
     });
   });
-
 });

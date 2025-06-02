@@ -49,4 +49,3 @@ import {
     @CreateDateColumn()
     createdAt: Date;
   }
-  

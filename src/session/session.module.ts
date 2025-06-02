@@ -17,7 +17,9 @@ import { User } from '../auth/entities/user.entity';
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
         secret: configService.jwtConfig.secret,
-        signOptions: { expiresIn: configService.sessionConfig.accessTokenExpiresIn || '1d' },
+        signOptions: {
+          expiresIn: configService.sessionConfig.accessTokenExpiresIn || '1d',
+        },
       }),
     }),
   ],

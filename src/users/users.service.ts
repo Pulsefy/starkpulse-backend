@@ -11,7 +11,9 @@ export class UsersService {
     private readonly userRepository: Repository<User>,
   ) {}
 
-  public async findByWalletAddress(walletAddress: string): Promise<User | null> {
+  public async findByWalletAddress(
+    walletAddress: string,
+  ): Promise<User | null> {
     return this.userRepository.findOne({ where: { walletAddress } });
   }
 
@@ -24,4 +26,3 @@ export class UsersService {
     return this.userRepository.save(user);
   }
 }
-

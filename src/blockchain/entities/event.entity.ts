@@ -1,4 +1,11 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm';
 import { ContractEntity } from './contract.entity';
 
 @Entity('contract_events')
@@ -33,10 +40,10 @@ export class EventEntity {
   @CreateDateColumn()
   createdAt: Date;
 
-  @ManyToOne(() => ContractEntity, contract => contract.events)
+  @ManyToOne(() => ContractEntity, (contract) => contract.events)
   @JoinColumn({ name: 'contractId' })
   contract: ContractEntity;
 
   @Column()
   contractId: string;
-} 
+}

@@ -1,4 +1,5 @@
 import { User } from '../../auth/entities/user.entity';
+
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -27,4 +28,3 @@ export class PortfolioSnapshot {
   @CreateDateColumn()
   createdAt: Date;
 }
-

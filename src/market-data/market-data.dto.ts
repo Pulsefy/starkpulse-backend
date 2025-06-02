@@ -1,6 +1,5 @@
 export class MarketDataDto {
-    symbol: string;
-    priceUsd: number;
-    timestamp: Date;
-  }
-  
+  symbol: string;
+  priceUsd: number;
+  timestamp: Date;
+}
