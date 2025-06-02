@@ -16,7 +16,11 @@ export class NewsController {
     const { title, content, category } = publishNewsDto;
 
     // Publish the news and trigger notifications
-    const news = await this.newsService.publishNewsUpdate(title, content, category);
+    const news = await this.newsService.publishNewsUpdate(
+      title,
+      content,
+      category,
+    );
 
     return { message: 'News published and notifications sent', news };
   }

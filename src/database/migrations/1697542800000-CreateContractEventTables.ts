@@ -1,6 +1,8 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class CreateContractEventTables1697542800000 implements MigrationInterface {
+export class CreateContractEventTables1697542800000
+  implements MigrationInterface
+{
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Create contracts table
     await queryRunner.query(`
@@ -53,4 +55,4 @@ export class CreateContractEventTables1697542800000 implements MigrationInterfac
       DROP TABLE IF EXISTS contracts;
     `);
   }
-} 
+}

@@ -11,8 +11,6 @@ import {
 import { User } from 'src/users/users.entity';
 import { NotificationType } from '../enums/notificationType.enum';
 
-
-
 @Entity()
 export class Notification {
   @PrimaryGeneratedColumn('uuid')
@@ -58,7 +56,6 @@ export class Notification {
 
   @CreateDateColumn()
   createdAt: Date;
-
 
   @Column({
     type: 'enum',

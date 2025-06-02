@@ -8,21 +8,25 @@ import {
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { Logger } from '@nestjs/common';
+import { Logger, UseGuards } from '@nestjs/common';
 import { NotificationsService } from './notifications.service';
 import { OnEvent } from '@nestjs/event-emitter';
 import { JwtService } from '@nestjs/jwt';
+import { WsJwtAuthGuard } from 'src/auth/guards/ws-jwt-auth.guard';
 
 @WebSocketGateway({
   cors: {
     origin: '*',
   },
 })
+@UseGuards(WsJwtAuthGuard) 
 export class NotificationsGateway
   implements OnGatewayConnection, OnGatewayDisconnect
 {
   private readonly logger = new Logger(NotificationsGateway.name);
   private userSocketMap = new Map<string, Set<string>>();
+  private messageBuffer: Map<string, any[]> = new Map(); // userId -> messages[]
+  private batchInterval = 1000; // 1 second
 
   @WebSocketServer()
   server: Server;
@@ -30,7 +34,9 @@ export class NotificationsGateway
   constructor(
     private readonly notificationsService: NotificationsService,
     private readonly jwtService: JwtService,
-  ) {}
+  ) {
+    this.startBatching();
+  }
 
   handleConnection(client: Socket) {
     try {
@@ -47,19 +53,14 @@ export class NotificationsGateway
 
       const payload = this.jwtService.verify(token);
       const userId = payload.sub;
+      client.data.userId = userId;
 
-      // Store the connection in our map
       if (!this.userSocketMap.has(userId)) {
         this.userSocketMap.set(userId, new Set());
       }
 
-      // Using optional chaining and nullish coalescing to handle potential undefined
       const socketSet = this.userSocketMap.get(userId);
-      if (socketSet) {
-        socketSet.add(client.id);
-      } else {
-        this.userSocketMap.set(userId, new Set([client.id]));
-      }
+      socketSet?.add(client.id);
 
       client.join(`user-${userId}`);
       this.logger.log(`Client connected: ${client.id} for user: ${userId}`);
@@ -68,8 +69,8 @@ export class NotificationsGateway
       client.disconnect();
     }
   }
+
   handleDisconnect(client: Socket) {
-    // Remove socket from our mapping
     this.userSocketMap.forEach((socketIds, userId) => {
       if (socketIds.has(client.id)) {
         socketIds.delete(client.id);
@@ -112,12 +113,7 @@ export class NotificationsGateway
     @MessageBody() data: { limit?: number; offset?: number },
   ) {
     try {
-      const token =
-        client.handshake.auth.token ||
-        client.handshake.headers.authorization?.split(' ')[1];
-      const payload = this.jwtService.verify(token);
-      const userId = payload.sub;
-
+      const userId = this.extractUserId(client);
       const notifications = await this.notificationsService.findAll(
         userId,
         data,
@@ -136,12 +132,7 @@ export class NotificationsGateway
     data: { transactionId?: string; limit?: number; offset?: number },
   ) {
     try {
-      const token =
-        client.handshake.auth.token ||
-        client.handshake.headers.authorization?.split(' ')[1];
-      const payload = this.jwtService.verify(token);
-      const userId = payload.sub;
-
+      const userId = this.extractUserId(client);
       const notifications =
         await this.notificationsService.getTransactionNotifications(
           userId,
@@ -193,19 +184,51 @@ export class NotificationsGateway
 
   @OnEvent('notification.created')
   handleNotificationCreated(payload: any) {
-    this.server.to(`user-${payload.userId}`).emit('notification', payload);
+    // Queue batched message for the user
+    this.queueBatchedMessage(payload.userId, {
+      type: 'notification',
+      data: payload,
+    });
   }
 
   @OnEvent('transaction.notification')
   handleTransactionNotification(payload: any) {
-    // Emit to specific user
-    this.server
-      .to(`user-${payload.userId}`)
-      .emit('transactionNotification', payload);
+    this.queueBatchedMessage(payload.userId, {
+      type: 'transactionNotification',
+      data: payload,
+    });
 
-    // Also emit to anyone subscribed to this transaction
     this.server
       .to(`transaction-${payload.transactionId}`)
       .emit('transactionUpdate', payload);
+  }
+
+  private queueBatchedMessage(userId: string, message: any) {
+    if (!this.messageBuffer.has(userId)) {
+      this.messageBuffer.set(userId, []);
+    }
+    this.messageBuffer.get(userId)?.push(message);
+  }
+
+  private startBatching() {
+    setInterval(() => {
+      this.messageBuffer.forEach((messages, userId) => {
+        if (messages.length > 0) {
+          this.server.to(`user-${userId}`).emit('batchedNotifications', messages);
+          this.logger.log(
+            `Sent ${messages.length} batched notifications to user-${userId}`,
+          );
+          this.messageBuffer.set(userId, []);
+        }
+      });
+    }, this.batchInterval);
+  }
+
+  private extractUserId(client: Socket): string {
+    const token =
+      client.handshake.auth.token ||
+      client.handshake.headers.authorization?.split(' ')[1];
+    const payload = this.jwtService.verify(token);
+    return payload.sub;
   }
 }

@@ -8,6 +8,7 @@ import {
   Req,
   HttpCode,
   HttpStatus,
+  Res, // keep this import from main
 } from '@nestjs/common';
 import { SessionService } from './session.service';
 import { Request } from 'express';

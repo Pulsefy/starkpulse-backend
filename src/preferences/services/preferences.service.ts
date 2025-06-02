@@ -15,7 +15,7 @@ export class PreferencesService {
   async create(userId: number, dto: CreatePreferencesDto) {
     const preferences = this.preferencesRepo.create({
       ...dto,
-      user: { id: userId.toString() }, 
+      user: { id: userId.toString() },
     });
     return this.preferencesRepo.save(preferences);
   }
