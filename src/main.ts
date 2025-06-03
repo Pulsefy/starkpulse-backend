@@ -1,11 +1,13 @@
 // src/main.ts
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe, Logger } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { ConfigService } from './config/config.service';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { ValidationPipe } from './common/pipes/validation.pipe';
+import * as cookieParser from 'cookie-parser';
 import { MarketGateway } from './market/market.gateway';
 import { MarketService } from './market/market.service';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
@@ -28,6 +30,9 @@ async function bootstrap() {
 
   const configService = app.get(ConfigService);  app.setGlobalPrefix('api');
   app.enableCors();
+
+  // Use cookie-parser middleware for handling cookies
+  app.use(cookieParser());
 
   app.useGlobalPipes(
     new ValidationPipe({

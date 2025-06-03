@@ -10,7 +10,9 @@ export class PriceFetcherService {
     try {
       const coinId = this.mapSymbolToId(symbol);
 
-      const response = await axios.get(`${this.baseUrl}?ids=${coinId}&vs_currencies=usd`);
+      const response = await axios.get(
+        `${this.baseUrl}?ids=${coinId}&vs_currencies=usd`,
+      );
       const price = response.data[coinId]?.usd;
 
       if (typeof price !== 'number') {
@@ -19,7 +21,9 @@ export class PriceFetcherService {
 
       return price;
     } catch (error) {
-      this.logger.error(`Failed to fetch price for ${symbol}: ${error.message}`);
+      this.logger.error(
+        `Failed to fetch price for ${symbol}: ${error.message}`,
+      );
       throw error;
     }
   }

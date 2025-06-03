@@ -1,45 +1,53 @@
-import { IsEnum, IsOptional, IsBoolean, IsString, IsInt, Min, Max } from "class-validator"
-import { Type } from "class-transformer"
-import { ApiPropertyOptional } from "@nestjs/swagger"
-import { NotificationType } from "../enums/notificationType.enum"
-import { NotificationPriority } from "../enums/notificationPriority.enum"
+import {
+  IsEnum,
+  IsOptional,
+  IsBoolean,
+  IsString,
+  IsInt,
+  Min,
+  Max,
+} from 'class-validator';
+import { Type } from 'class-transformer';
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { NotificationType } from '../enums/notificationType.enum';
+import { NotificationPriority } from '../enums/notificationPriority.enum';
 
 export class NotificationQueryDto {
   @ApiPropertyOptional({
-    description: "Filter by notification type",
+    description: 'Filter by notification type',
     enum: NotificationType,
   })
   @IsEnum(NotificationType)
   @IsOptional()
-  type?: NotificationType
+  type?: NotificationType;
 
   @ApiPropertyOptional({
-    description: "Filter by read status",
+    description: 'Filter by read status',
     example: false,
   })
   @IsBoolean()
   @IsOptional()
   @Type(() => Boolean)
-  read?: boolean
+  read?: boolean;
 
   @ApiPropertyOptional({
-    description: "Filter by priority",
+    description: 'Filter by priority',
     enum: NotificationPriority,
   })
   @IsEnum(NotificationPriority)
   @IsOptional()
-  priority?: NotificationPriority
+  priority?: NotificationPriority;
 
   @ApiPropertyOptional({
-    description: "Search in title and content",
-    example: "transaction",
+    description: 'Search in title and content',
+    example: 'transaction',
   })
   @IsString()
   @IsOptional()
-  search?: string
+  search?: string;
 
   @ApiPropertyOptional({
-    description: "Maximum number of results to return",
+    description: 'Maximum number of results to return',
     example: 10,
     default: 10,
   })
@@ -48,10 +56,10 @@ export class NotificationQueryDto {
   @Max(100)
   @IsOptional()
   @Type(() => Number)
-  limit?: number = 10
+  limit?: number = 10;
 
   @ApiPropertyOptional({
-    description: "Number of results to skip",
+    description: 'Number of results to skip',
     example: 0,
     default: 0,
   })
@@ -59,5 +67,5 @@ export class NotificationQueryDto {
   @Min(0)
   @IsOptional()
   @Type(() => Number)
-  offset?: number = 0
+  offset?: number = 0;
 }

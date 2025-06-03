@@ -5,7 +5,7 @@ import { RateLimitStrategy } from '../common/enums/rate-limit.enum';
 export const starknetConfig = () => ({
   starknet: {
     rpcUrl: process.env.STARKNET_RPC_URL || 'https://rpc.starknet.io',
-    network: process.env.STARKNET_NETWORK || 'mainnet'
+    network: process.env.STARKNET_NETWORK || 'mainnet',
   },
 });
 
