@@ -10,6 +10,7 @@ import { ValidationPipe } from './common/pipes/validation.pipe';
 import * as cookieParser from 'cookie-parser';
 import { MarketGateway } from './market/market.gateway';
 import { MarketService } from './market/market.service';
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -44,6 +45,28 @@ async function bootstrap() {
 
   // Global interceptors
   app.useGlobalInterceptors(new LoggingInterceptor());
+
+  // Swagger/OpenAPI setup
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle('StarkPulse API')
+    .setDescription('API documentation for StarkPulse backend. All secured endpoints require a Bearer JWT token.')
+    .setVersion('1.0')
+    .addBearerAuth({
+      type: 'http',
+      scheme: 'bearer',
+      bearerFormat: 'JWT',
+      name: 'Authorization',
+      description: 'Enter JWT token',
+      in: 'header',
+    }, 'Bearer')
+    .build();
+  const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
+  SwaggerModule.setup('api/docs', app, swaggerDocument, {
+    swaggerOptions: {
+      persistAuthorization: true,
+    },
+    customSiteTitle: 'StarkPulse API Docs',
+  });
 
   await app.listen(port);
 
