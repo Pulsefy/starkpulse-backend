@@ -19,6 +19,7 @@ import { MarketModule } from './market/market.module';
 import { NewsModule } from './news/news.module';
 import { MarketDataModule } from './market-data/market-data.module';
 import { CacheWarmupService } from './common/cache/cache-warmup.service';
+import { MonitoringModule } from './monitoring/monitoring.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { CacheWarmupService } from './common/cache/cache-warmup.service';
     MarketDataModule,
     NewsModule,
     MarketModule,
+    MonitoringModule,
   ],
   providers: [CacheWarmupService],
 })
