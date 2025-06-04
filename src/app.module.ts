@@ -27,6 +27,7 @@ import { NewsModule } from './news/news.module';
 import { MarketDataModule } from './market-data/market-data.module';
 import { CacheWarmupService } from './common/cache/cache-warmup.service';
 import { SecurityModule } from './common/security/security.module';
+import { MonitoringModule } from './monitoring/monitoring.module';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { SecurityModule } from './common/security/security.module';
     NewsModule,
     MarketModule,
     SecurityModule,
+    MonitoringModule,
   ],
   providers: [CacheWarmupService],
 })
