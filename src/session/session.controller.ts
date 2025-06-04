@@ -8,10 +8,10 @@ import {
   Req,
   HttpCode,
   HttpStatus,
-  Res,
+  Res, // keep this import from main
 } from '@nestjs/common';
 import { SessionService } from './session.service';
-import { Request, Response } from 'express';
+import { Request } from 'express';
 import { GetUser } from '../auth/decorator/get-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guards';
 
@@ -44,7 +44,7 @@ export class SessionController {
   }
 
   /**
-   * Revoke a specific session
+   * Revoke a specific session owned by the user
    */
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
@@ -80,5 +80,15 @@ export class SessionController {
     }
 
     return;
+  }
+
+  /**
+   * Revoke a session by ID (authenticated user only)
+   */
+  @UseGuards(JwtAuthGuard)
+  @Post(':id/revoke')
+  async revoke(@Param('id') id: string, @GetUser() user) {
+    await this.sessionService.revokeSession(id, user.id);
+    return { message: 'Session revoked successfully' };
   }
 }

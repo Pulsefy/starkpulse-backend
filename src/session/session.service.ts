@@ -3,61 +3,57 @@ import {
   UnauthorizedException,
   BadRequestException,
   OnModuleDestroy,
+  NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThan } from 'typeorm';
+import { Repository, LessThan, Not } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '../config/config.service';
 import { Session } from './entities/session.entity';
+import { SessionActivity } from './entities/activity.entity';
 import { Request } from 'express';
 import * as crypto from 'crypto';
 import { UAParser } from 'ua-parser-js';
 import { User } from '../auth/entities/user.entity';
 
+const SESSION_TIMEOUT_MINUTES = 30;
+const MAX_CONCURRENT_SESSIONS = 1;
+
 @Injectable()
 export class SessionService implements OnModuleDestroy {
   private cleanupInterval: NodeJS.Timeout;
+
   constructor(
     @InjectRepository(Session)
     private sessionRepository: Repository<Session>,
     @InjectRepository(User)
     private userRepository: Repository<User>,
+    @InjectRepository(SessionActivity)
+    private activityRepo: Repository<SessionActivity>,
     private jwtService: JwtService,
     private configService: ConfigService,
   ) {
-    // Clean expired sessions periodically
-    setInterval(() => this.cleanExpiredSessions(), 1000 * 60 * 60); // Run every hour
+    this.cleanupInterval = setInterval(() => this.cleanExpiredSessions(), 1000 * 60 * 60); // hourly
   }
 
-  /**
-   * Create a new session for a user
-   */
   async createSession(
     user: User,
     req: Request,
     walletAddress?: string,
   ): Promise<{ accessToken: string; refreshToken: string }> {
-    // Generate device info
     const deviceInfo = this.getDeviceInfo(req);
 
-    // Check if there's an existing active session for this device
-    const existingSession = await this.findExistingDeviceSession(
-      user.id,
-      deviceInfo,
-    );
+    // Enforce concurrent session limit
+    await this.enforceConcurrentSessions(user.id);
 
-    // If there's an existing session for this device, deactivate it
-    if (existingSession) {
-      await this.sessionRepository.remove(existingSession);
-    }
+    const existingSession = await this.findExistingDeviceSession(user.id, deviceInfo);
+    if (existingSession) await this.sessionRepository.remove(existingSession);
 
-    // Generate tokens
     const accessTokenPayload = { sub: user.id, username: user.username };
     const accessToken = this.jwtService.sign(accessTokenPayload, {
       expiresIn: this.configService.sessionConfig.accessTokenExpiresIn || '15m',
     });
 
-    // Create refresh token with longer expiration
     const refreshTokenPayload = {
       sub: user.id,
       tokenId: crypto.randomBytes(16).toString('hex'),
@@ -66,11 +62,9 @@ export class SessionService implements OnModuleDestroy {
       expiresIn: this.configService.sessionConfig.refreshTokenExpiresIn || '7d',
     });
 
-    // Calculate expiration date
     const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7); // 7 days from now
+    expiresAt.setDate(expiresAt.getDate() + 7);
 
-    // Create and save session
     const session = this.sessionRepository.create({
       userId: user.id,
       token: refreshToken,
@@ -78,6 +72,9 @@ export class SessionService implements OnModuleDestroy {
       deviceInfo,
       walletAddress,
       lastActiveAt: new Date(),
+      ipAddress: deviceInfo.ip,
+      revoked: false,
+      isActive: true,
     });
 
     await this.sessionRepository.save(session);
@@ -85,23 +82,14 @@ export class SessionService implements OnModuleDestroy {
     return { accessToken, refreshToken };
   }
 
-  /**
-   * Finds an existing active session for the same device
-   */
   private async findExistingDeviceSession(
     userId: string,
     deviceInfo: Session['deviceInfo'],
   ): Promise<Session | null> {
-    // Find sessions for this user
     const userSessions = await this.sessionRepository.find({
-      where: {
-        userId,
-        isActive: true,
-      },
+      where: { userId, isActive: true, revoked: false },
     });
 
-    // Check for matching device fingerprints
-    // We'll consider a device match if the browser, OS, and IP address match
     return (
       userSessions.find(
         (session) =>
@@ -112,20 +100,11 @@ export class SessionService implements OnModuleDestroy {
     );
   }
 
-  /**
-   * Refresh the access token using a refresh token
-   */
-  async refreshToken(
-    refreshToken: string,
-    req: Request,
-  ): Promise<{ accessToken: string }> {
+  async refreshToken(refreshToken: string, req: Request): Promise<{ accessToken: string }> {
     try {
-      // Verify refresh token
       const payload = this.jwtService.verify(refreshToken);
-
-      // Find session in database
       const session = await this.sessionRepository.findOne({
-        where: { token: refreshToken, isActive: true },
+        where: { token: refreshToken, isActive: true, revoked: false },
         relations: ['user'],
       });
 
@@ -133,17 +112,15 @@ export class SessionService implements OnModuleDestroy {
         throw new UnauthorizedException('Invalid or expired session');
       }
 
-      // Update last active time and device info (in case it changed slightly)
+      await this.validateSession(session.id); // Validate timeout
       session.lastActiveAt = new Date();
       session.deviceInfo = this.getDeviceInfo(req);
       await this.sessionRepository.save(session);
 
-      // Generate new access token
       const user = session.user;
       const accessTokenPayload = { sub: user.id, username: user.username };
       const accessToken = this.jwtService.sign(accessTokenPayload, {
-        expiresIn:
-          this.configService.sessionConfig.accessTokenExpiresIn || '1d',
+        expiresIn: this.configService.sessionConfig.accessTokenExpiresIn || '1d',
       });
 
       return { accessToken };
@@ -152,31 +129,18 @@ export class SessionService implements OnModuleDestroy {
     }
   }
 
-  /**
-   * Get all active sessions for a user
-   */
   async getUserSessions(userId: string): Promise<Omit<Session, 'token'>[]> {
     const sessions = await this.sessionRepository.find({
-      where: {
-        userId,
-        isActive: true,
-      },
+      where: { userId, isActive: true, revoked: false },
       order: { lastActiveAt: 'DESC' },
     });
 
-    // Remove token from each session for security
-    return sessions.map((session) => {
-      const { token, ...sessionWithoutToken } = session;
-      return sessionWithoutToken;
-    });
+    return sessions.map(({ token, ...rest }) => rest);
   }
 
-  /**
-   * Validate a session by its token
-   */
-  async validateSession(token: string): Promise<Session> {
+  async validateSession(sessionId: string): Promise<Session> {
     const session = await this.sessionRepository.findOne({
-      where: { token, isActive: true },
+      where: { id: sessionId, isActive: true, revoked: false },
       relations: ['user'],
     });
 
@@ -184,66 +148,54 @@ export class SessionService implements OnModuleDestroy {
       throw new UnauthorizedException('Invalid or expired session');
     }
 
+    const now = new Date();
+    const diffMinutes = (now.getTime() - session.lastActiveAt.getTime()) / 60000;
+
+    if (diffMinutes > SESSION_TIMEOUT_MINUTES) {
+      session.revoked = true;
+      session.isActive = false;
+      await this.sessionRepository.save(session);
+      throw new UnauthorizedException('Session timed out');
+    }
+
+    session.lastActiveAt = now;
+    await this.sessionRepository.save(session);
     return session;
   }
 
-  /**
-   * Revoke a single session
-   */
   async revokeSession(sessionId: string, userId: string): Promise<void> {
-    const session = await this.sessionRepository.findOne({
-      where: { id: sessionId, userId },
-    });
-
-    if (!session) {
-      throw new BadRequestException('Session not found');
-    }
+    const session = await this.sessionRepository.findOne({ where: { id: sessionId, userId } });
+    if (!session) throw new BadRequestException('Session not found');
 
     session.isActive = false;
+    session.revoked = true;
     await this.sessionRepository.save(session);
   }
 
-  /**
-   * Revoke all sessions for a user except the current one
-   */
-  async revokeAllOtherSessions(
-    userId: string,
-    currentSessionId: string,
-  ): Promise<void> {
+  async revokeAllOtherSessions(userId: string, currentSessionId: string): Promise<void> {
     await this.sessionRepository.update(
-      { userId, id: currentSessionId, isActive: true },
-      { isActive: false },
+      { userId, isActive: true, revoked: false, id: Not(currentSessionId) },
+      { isActive: false, revoked: true },
     );
   }
 
-  /**
-   * Logout by revoking the current session
-   */
   async logout(refreshToken: string): Promise<void> {
-    const session = await this.sessionRepository.findOne({
-      where: { token: refreshToken },
-    });
-
+    const session = await this.sessionRepository.findOne({ where: { token: refreshToken } });
     if (session) {
       session.isActive = false;
+      session.revoked = true;
       await this.sessionRepository.save(session);
     }
   }
 
-  /**
-   * Clean expired sessions from the database
-   */
   private async cleanExpiredSessions(): Promise<void> {
     const now = new Date();
     await this.sessionRepository.update(
       { expiresAt: LessThan(now), isActive: true },
-      { isActive: false },
+      { isActive: false, revoked: true },
     );
   }
 
-  /**
-   * Extract device information from request
-   */
   private getDeviceInfo(req: Request): Session['deviceInfo'] {
     const userAgent = req.headers['user-agent'] || '';
     const parser = new UAParser(userAgent);
@@ -263,12 +215,35 @@ export class SessionService implements OnModuleDestroy {
     };
   }
 
-  /**
-   * Generate a device fingerprint to uniquely identify a device
-   */
-  private generateDeviceFingerprint(deviceInfo: Session['deviceInfo']): string {
-    const fingerprintData = `${deviceInfo.browser}|${deviceInfo.os}|${deviceInfo.ip}`;
-    return crypto.createHash('sha256').update(fingerprintData).digest('hex');
+  async enforceConcurrentSessions(userId: string): Promise<void> {
+    const activeSessions = await this.sessionRepository.find({
+      where: { userId, revoked: false, isActive: true },
+    });
+
+    if (activeSessions.length >= MAX_CONCURRENT_SESSIONS) {
+      for (const session of activeSessions) {
+        session.revoked = true;
+        session.isActive = false;
+        await this.sessionRepository.save(session);
+      }
+    }
+  }
+
+  async trackActivity(sessionId: string, action: string, metadata?: string) {
+    const activity = this.activityRepo.create({ sessionId, action, metadata });
+    await this.activityRepo.save(activity);
+  }
+
+  async detectSuspiciousActivity(userId: string, currentIp: string): Promise<boolean> {
+    const recentSessions = await this.sessionRepository.find({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+      take: 3,
+    });
+
+    const lastIps = recentSessions.map((s) => s.ipAddress);
+    const distinctIps = new Set(lastIps);
+    return distinctIps.size > 1;
   }
 
   onModuleDestroy() {
