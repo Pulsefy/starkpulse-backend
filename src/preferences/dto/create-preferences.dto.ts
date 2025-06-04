@@ -15,4 +15,16 @@ export class CreatePreferencesDto {
 
   @IsBoolean()
   syncAcrossDevices: boolean;
+
+  @IsOptional()
+  language?: string;
+
+  @IsOptional()
+  notificationPreferences?: Record<string, boolean>;
+
+  @IsOptional()
+  dashboardLayout?: any;
+
+  @IsOptional()
+  betaFeatures?: Record<string, boolean>;
 }
