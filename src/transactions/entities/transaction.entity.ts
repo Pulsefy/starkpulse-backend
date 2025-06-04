@@ -9,8 +9,8 @@ import {
   JoinColumn,
   OneToMany,
 } from 'typeorm';
-import { User } from 'src/users/users.entity';
-import { TransactionNotification } from 'src/notifications/entities/transaction-notification.entity';
+import { User } from '../../users/users.entity';
+import { TransactionNotification } from '../../notifications/entities/transaction-notification.entity';
 import { TransactionType } from '../enums/transactionType.enum';
 import { TransactionEvent } from './transaction-event.entity';
 

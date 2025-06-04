@@ -27,12 +27,12 @@ export class UpdateNotificationPreferenceDto {
   push?: boolean;
 
   @ApiPropertyOptional({
-    description: 'Enable transaction status change notifications',
+    description: 'Enable SMS notifications',
     example: true,
   })
   @IsBoolean()
   @IsOptional()
-  transactionStatusChanges?: boolean;
+  sms?: boolean;
 
   @ApiPropertyOptional({
     description: 'Enable transaction error notifications',
@@ -40,7 +40,7 @@ export class UpdateNotificationPreferenceDto {
   })
   @IsBoolean()
   @IsOptional()
-  transactionErrors?: boolean;
+  transactionStatusChanges?: boolean;
 
   @ApiPropertyOptional({
     description: 'Enable transaction confirmation notifications',
@@ -48,7 +48,7 @@ export class UpdateNotificationPreferenceDto {
   })
   @IsBoolean()
   @IsOptional()
-  transactionConfirmations?: boolean;
+  transactionErrors?: boolean;
 
   @ApiPropertyOptional({
     description: 'Enable security alert notifications',
@@ -56,7 +56,7 @@ export class UpdateNotificationPreferenceDto {
   })
   @IsBoolean()
   @IsOptional()
-  securityAlerts?: boolean;
+  transactionConfirmations?: boolean;
 
   @ApiPropertyOptional({
     description: 'Enable price alert notifications',
@@ -64,7 +64,7 @@ export class UpdateNotificationPreferenceDto {
   })
   @IsBoolean()
   @IsOptional()
-  priceAlerts?: boolean;
+  securityAlerts?: boolean;
 
   @ApiPropertyOptional({
     description: 'Enable portfolio update notifications',
@@ -72,10 +72,18 @@ export class UpdateNotificationPreferenceDto {
   })
   @IsBoolean()
   @IsOptional()
-  portfolioUpdates?: boolean;
+  priceAlerts?: boolean;
 
   @ApiPropertyOptional({
     description: 'Enable news update notifications',
+    example: true,
+  })
+  @IsBoolean()
+  @IsOptional()
+  portfolioUpdates?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Enable system announcement notifications',
     example: true,
   })
   @IsBoolean()

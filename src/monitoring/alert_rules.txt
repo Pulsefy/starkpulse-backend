@@ -1,0 +1,232 @@
+groups:
+  - name: application.rules
+    rules:
+      # High Error Rate Alert
+      - alert: HighErrorRate
+        expr: (rate(nestjs_app_http_errors_total[5m]) / rate(nestjs_app_http_requests_total[5m])) > 0.05
+        for: 1m
+        labels:
+          severity: critical
+          service: nestjs-app
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value | humanizePercentage }} for the last 5 minutes"
+
+      # High Response Time Alert
+      - alert: HighResponseTime
+        expr: histogram_quantile(0.95, rate(nestjs_app_http_request_duration_seconds_bucket[5m])) > 5
+        for: 2m
+        labels:
+          severity: warning
+          service: nestjs-app
+        annotations:
+          summary: "High response time detected"
+          description: "95th percentile response time is {{ $value }}s for the last 5 minutes"
+
+      # Application Down Alert
+      - alert: ApplicationDown
+        expr: up{job="nestjs-app"} == 0
+        for: 30s
+        labels:
+          severity: critical
+          service: nestjs-app
+        annotations:
+          summary: "NestJS application is down"
+          description: "NestJS application has been down for more than 30 seconds"
+
+      # High Memory Usage Alert
+      - alert: HighMemoryUsage
+        expr: (nestjs_app_memory_usage_bytes / nestjs_app_memory_total_bytes) > 0.8
+        for: 3m
+        labels:
+          severity: warning
+          service: nestjs-app
+        annotations:
+          summary: "High memory usage detected"
+          description: "Memory usage is {{ $value | humanizePercentage }} for the last 3 minutes"
+
+  - name: database.rules
+    rules:
+      # Database Connection Alert
+      - alert: DatabaseConnectionFailure
+        expr: nestjs_app_database_health_status == 0
+        for: 30s
+        labels:
+          severity: critical
+          service: postgres
+        annotations:
+          summary: "Database connection failure"
+          description: "Database health check has been failing for more than 30 seconds"
+
+      # High Database Connections
+      - alert: HighDatabaseConnections
+        expr: nestjs_app_database_connections_active > 80
+        for: 2m
+        labels:
+          severity: warning
+          service: postgres
+        annotations:
+          summary: "High number of database connections"
+          description: "Active database connections: {{ $value }}"
+
+      # Slow Database Queries
+      - alert: SlowDatabaseQueries
+        expr: rate(nestjs_app_database_slow_queries_total[5m]) > 0.1
+        for: 1m
+        labels:
+          severity: warning
+          service: postgres
+        annotations:
+          summary: "High rate of slow database queries"
+          description: "Slow query rate is {{ $value }} queries per second"
+
+  - name: system.rules
+    rules:
+      # High CPU Usage Alert
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 3m
+        labels:
+          severity: warning
+          service: system
+        annotations:
+          summary: "High CPU usage detected"
+          description: "CPU usage is {{ $value }}% for instance {{ $labels.instance }}"
+
+      # High Memory Usage Alert
+      - alert: HighSystemMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) > 0.8
+        for: 3m
+        labels:
+          severity: warning
+          service: system
+        annotations:
+          summary: "High system memory usage"
+          description: "Memory usage is {{ $value | humanizePercentage }} for instance {{ $labels.instance }}"
+
+      # Low Disk Space Alert
+      - alert: LowDiskSpace
+        expr: (1 - (node_filesystem_avail_bytes{fstype!="tmpfs"} / node_filesystem_size_bytes{fstype!="tmpfs"})) > 0.9
+        for: 5m
+        labels:
+          severity: critical
+          service: system
+        annotations:
+          summary: "Low disk space"
+          description: "Disk usage is {{ $value | humanizePercentage }} for filesystem {{ $labels.mountpoint }} on {{ $labels.instance }}"
+
+      # High Load Average Alert
+      - alert: HighLoadAverage
+        expr: node_load15 > 2
+        for: 5m
+        labels:
+          severity: warning
+          service: system
+        annotations:
+          summary: "High load average"
+          description: "15-minute load average is {{ $value }} for instance {{ $labels.instance }}"
+
+  - name: postgres.rules
+    rules:
+      # PostgreSQL Down Alert
+      - alert: PostgreSQLDown
+        expr: pg_up == 0
+        for: 30s
+        labels:
+          severity: critical
+          service: postgres
+        annotations:
+          summary: "PostgreSQL is down"
+          description: "PostgreSQL database is down for instance {{ $labels.instance }}"
+
+      # High PostgreSQL Connections
+      - alert: PostgreSQLHighConnections
+        expr: pg_stat_database_numbackends / pg_settings_max_connections > 0.8
+        for: 2m
+        labels:
+          severity: warning
+          service: postgres
+        annotations:
+          summary: "High PostgreSQL connections"
+          description: "PostgreSQL connection usage is {{ $value | humanizePercentage }}"
+
+      # PostgreSQL Replication Lag
+      - alert: PostgreSQLReplicationLag
+        expr: pg_replication_lag > 60
+        for: 1m
+        labels:
+          severity: warning
+          service: postgres
+        annotations:
+          summary: "PostgreSQL replication lag"
+          description: "PostgreSQL replication lag is {{ $value }} seconds"
+
+      # Long Running Queries
+      - alert: PostgreSQLLongRunningQueries
+        expr: pg_stat_activity_max_tx_duration > 300
+        for: 1m
+        labels:
+          severity: warning
+          service: postgres
+        annotations:
+          summary: "Long running PostgreSQL queries"
+          description: "Longest running query duration is {{ $value }} seconds"
+
+  - name: redis.rules
+    rules:
+      # Redis Down Alert
+      - alert: RedisDown
+        expr: redis_up == 0
+        for: 30s
+        labels:
+          severity: critical
+          service: redis
+        annotations:
+          summary: "Redis is down"
+          description: "Redis instance is down for {{ $labels.instance }}"
+
+      # High Redis Memory Usage
+      - alert: RedisHighMemoryUsage
+        expr: (redis_memory_used_bytes / redis_memory_max_bytes) > 0.8
+        for: 2m
+        labels:
+          severity: warning
+          service: redis
+        annotations:
+          summary: "High Redis memory usage"
+          description: "Redis memory usage is {{ $value | humanizePercentage }}"
+
+      # Redis Slow Log
+      - alert: RedisSlowLog
+        expr: increase(redis_slowlog_length[5m]) > 10
+        for: 1m
+        labels:
+          severity: warning
+          service: redis
+        annotations:
+          summary: "Redis slow log increasing"
+          description: "Redis slow log has increased by {{ $value }} entries in the last 5 minutes"
+
+  - name: network.rules
+    rules:
+      # High Network Traffic
+      - alert: HighNetworkTraffic
+        expr: rate(node_network_receive_bytes_total[5m]) > 100000000 or rate(node_network_transmit_bytes_total[5m]) > 100000000
+        for: 2m
+        labels:
+          severity: warning
+          service: network
+        annotations:
+          summary: "High network traffic"
+          description: "Network traffic is high on interface {{ $labels.device }} for instance {{ $labels.instance }}"
+
+      # Network Interface Down
+      - alert: NetworkInterfaceDown
+        expr: node_network_up == 0
+        for: 1m
+        labels:
+          severity: warning
+          service: network
+        annotations:
+          summary: "Network interface down"
+          description: "Network interface {{ $labels.device }} is down on {{ $labels.instance }}"

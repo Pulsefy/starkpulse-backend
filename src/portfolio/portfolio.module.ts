@@ -8,7 +8,7 @@ import { PriceModule } from '../price/price.module';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { PortfolioController } from './portfolio.controller';
-import { BlockchainModule } from 'src/blockchain/blockchain.module';
+import { BlockchainModule } from '../blockchain/blockchain.module';
 
 @Module({
   imports: [

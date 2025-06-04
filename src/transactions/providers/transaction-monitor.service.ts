@@ -10,9 +10,9 @@ import { Transaction } from '../entities/transaction.entity';
 import { TransactionEvent } from '../entities/transaction-event.entity';
 import { EventType } from '../enums/EventType.enum';
 import { TransactionType } from '../enums/transactionType.enum';
-import { UsersService } from 'src/users/users.service';
-import { Notification } from 'src/notifications/entities/notification.entity';
-import { NotificationType } from 'src/notifications/enums/notificationType.enum';
+import { UsersService } from '../../users/users.service';
+import { Notification } from '../../notifications/entities/notification.entity';
+import { NotificationType } from '../../notifications/enums/notificationType.enum';
 
 @Injectable()
 export class TransactionMonitorService implements OnModuleInit {

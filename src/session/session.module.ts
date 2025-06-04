@@ -6,7 +6,7 @@ import { SessionController } from './session.controller';
 import { Session } from './entities/session.entity';
 import { ConfigModule } from '../config/config.module';
 import { ConfigService } from '../config/config.service';
-import { User } from 'src/auth/entities/user.entity';
+import { User } from '../auth/entities/user.entity';
 
 @Module({
   imports: [

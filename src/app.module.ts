@@ -35,6 +35,7 @@ import { RateLimitModule } from './common/module/rate-limit.module';
 import { RateLimitMiddleware } from './common/middleware/rate-limit.middleware';
 import { RateLimitGuard } from './common/guards/rate-limit.guard';
 import { RateLimitLoggingInterceptor } from './common/interceptors/rate-limit-logging.interceptor';
+import { MonitoringModule } from './monitoring/monitoring.module';
 
 @Module({
   imports: [
@@ -83,6 +84,7 @@ import { RateLimitLoggingInterceptor } from './common/interceptors/rate-limit-lo
     NewsModule,
     MarketModule,
     SecurityModule,
+    MonitoringModule,
     CacheWarmupService,
   ],
 })

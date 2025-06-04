@@ -3,7 +3,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Not, FindOperator } from 'typeorm';
 import { PortfolioService } from '../services/portfolio.service';
-import { User } from 'src/auth/entities/user.entity';
+import { User } from '../../auth/entities/user.entity';
 
 @Injectable()
 export class PortfolioSyncTask {
