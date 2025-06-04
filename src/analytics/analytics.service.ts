@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { PortfolioSnapshot } from '../portfolio/entities/portfolio.entity';
 import { Repository } from 'typeorm';
 import { PortfolioSnapshot } from 'src/portfolio/entities/portfolio-snapshot.entity';
 import { AnalyticsResponseDto } from './dto/analytics-response.dto';

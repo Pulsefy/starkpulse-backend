@@ -1,4 +1,3 @@
-// src/notifications/entities/notification-preference.entity.ts
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -8,7 +7,8 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { User } from 'src/users/users.entity';
+import { User } from '../../users/users.entity';
+
 
 @Entity()
 export class NotificationPreference {
@@ -31,6 +31,9 @@ export class NotificationPreference {
 
   @Column({ default: false })
   push: boolean;
+
+  @Column({ default: false })
+  sms: boolean;
 
   // Notification type preferences
   @Column({ default: true })
@@ -56,6 +59,33 @@ export class NotificationPreference {
 
   @Column({ default: true })
   systemAnnouncements: boolean;
+
+  // Frequency & Quiet Hours
+  @Column({
+    type: 'enum',
+    enum: ['immediate', 'daily', 'weekly', 'never'],
+    default: 'immediate',
+  })
+  emailFrequency: 'immediate' | 'daily' | 'weekly' | 'never';
+
+  @Column({
+    type: 'enum',
+    enum: ['immediate', 'daily', 'weekly', 'never'],
+    default: 'immediate',
+  })
+  pushFrequency: 'immediate' | 'daily' | 'weekly' | 'never';
+
+  @Column({ type: 'boolean', default: false })
+  enableQuietHours: boolean;
+
+  @Column({ type: 'varchar', length: 5, nullable: true })
+  quietHoursStart?: string;
+
+  @Column({ type: 'varchar', length: 5, nullable: true })
+  quietHoursEnd?: string;
+
+  @Column({ type: 'boolean', default: false })
+  quietHoursExceptUrgent: boolean;
 
   @CreateDateColumn()
   createdAt: Date;

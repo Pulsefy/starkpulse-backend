@@ -10,7 +10,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PortfolioSnapshot } from './entities/portfolio.entity';
-import { User } from 'src/auth/entities/user.entity';
+import { User } from '../auth/entities/user.entity';
 import { UpdatePortfolioDto } from './dto/update-portfolio.dto';
 import { CreatePortfolioDto } from './dto/create-portfolio.dto';
 

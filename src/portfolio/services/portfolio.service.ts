@@ -11,8 +11,8 @@ import {
   PortfolioResponseDto,
   AssetResponseDto,
 } from '../dto/portfolio-response.dto';
-import { StarknetService } from 'src/blockchain/services/starknet.service';
-import { PriceService } from 'src/price/price.service';
+import { StarknetService } from '../../blockchain/services/starknet.service';
+import { PriceService } from '../../price/price.service';
 
 @Injectable()
 export class PortfolioService {

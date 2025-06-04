@@ -16,6 +16,10 @@ export class PreferencesService {
     const preferences = this.preferencesRepo.create({
       ...dto,
       user: { id: userId.toString() },
+      language: dto.language || 'en',
+      notificationPreferences: dto.notificationPreferences || { email: true, push: true },
+      dashboardLayout: dto.dashboardLayout || null,
+      betaFeatures: dto.betaFeatures || {},
     });
     return this.preferencesRepo.save(preferences);
   }
@@ -31,6 +35,10 @@ export class PreferencesService {
   async update(userId: number, dto: UpdatePreferencesDto) {
     const preferences = await this.findByUserId(userId);
     Object.assign(preferences, dto);
+    if (dto.language !== undefined) preferences.language = dto.language;
+    if (dto.notificationPreferences !== undefined) preferences.notificationPreferences = dto.notificationPreferences;
+    if (dto.dashboardLayout !== undefined) preferences.dashboardLayout = dto.dashboardLayout;
+    if (dto.betaFeatures !== undefined) preferences.betaFeatures = dto.betaFeatures;
     return this.preferencesRepo.save(preferences);
   }
 
