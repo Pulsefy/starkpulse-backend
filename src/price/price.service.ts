@@ -12,7 +12,7 @@ import { NftPrice } from './entities/nft-price.entity';
 import { TokenPrice } from './entities/token-price.entity';
 import { PriceAlert } from './entities/price.entity';
 import { PriceFetcherService } from './price-fetcher.service';
-import { NotificationsService } from 'src/notifications/notifications.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class PriceService implements OnModuleInit {

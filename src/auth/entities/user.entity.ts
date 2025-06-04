@@ -9,8 +9,8 @@ import {
   OneToMany,
 } from 'typeorm';
 import * as bcrypt from 'bcrypt';
-import { PortfolioSnapshot } from 'src/portfolio/entities/portfolio.entity';
-import { PortfolioAsset } from 'src/portfolio/entities/portfolio-asset.entity';
+import { PortfolioSnapshot } from '../../portfolio/entities/portfolio.entity';
+import { PortfolioAsset } from '../../portfolio/entities/portfolio-asset.entity';
 
 @Entity('users')
 export class User {
