@@ -1,4 +1,11 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryGeneratedColumn,
+  CreateDateColumn,
+  UpdateDateColumn,
+  OneToMany,
+} from 'typeorm';
 import { EventEntity } from './event.entity';
 
 @Entity('contracts')
@@ -27,7 +34,7 @@ export class ContractEntity {
   @Column({ nullable: true })
   lastSyncedBlock: number;
 
-  @OneToMany(() => EventEntity, event => event.contract)
+  @OneToMany(() => EventEntity, (event) => event.contract)
   events: EventEntity[];
 
   @CreateDateColumn()
@@ -35,4 +42,4 @@ export class ContractEntity {
 
   @UpdateDateColumn()
   updatedAt: Date;
-} 
+}

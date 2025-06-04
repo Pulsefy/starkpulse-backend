@@ -10,10 +10,9 @@ import { Transaction } from '../entities/transaction.entity';
 import { TransactionEvent } from '../entities/transaction-event.entity';
 import { EventType } from '../enums/EventType.enum';
 import { TransactionType } from '../enums/transactionType.enum';
-import { UsersService } from 'src/users/users.service';
-import { Notification } from 'src/notifications/entities/notification.entity';
-import { NotificationType } from 'src/notifications/enums/notificationType.enum';
-
+import { UsersService } from '../../users/users.service';
+import { Notification } from '../../notifications/entities/notification.entity';
+import { NotificationType } from '../../notifications/enums/notificationType.enum';
 
 @Injectable()
 export class TransactionMonitorService implements OnModuleInit {
@@ -38,7 +37,6 @@ export class TransactionMonitorService implements OnModuleInit {
     private transactionIndexService: TransactionIndexService,
 
     private readonly userService: UsersService,
-
   ) {
     // Initialize StarkNet provider
     const providerUrl = this.configService.get<string>('STARKNET_PROVIDER_URL');
@@ -509,7 +507,7 @@ export class TransactionMonitorService implements OnModuleInit {
     }
   }
 
-  //FN TO TRIGGER  TRANSACTION NOTIFICATION  
+  //FN TO TRIGGER  TRANSACTION NOTIFICATION
   public async notifyTransactionEvent({
     userId,
     transactionId,
@@ -558,10 +556,7 @@ export class TransactionMonitorService implements OnModuleInit {
       content: message,
       metadata: { ...metadata, transactionId, eventType },
       channel: 'in_app',
-      status: 'PENDING',  // Pending until sent
+      status: 'PENDING', // Pending until sent
     });
-
   }
-
 }
-

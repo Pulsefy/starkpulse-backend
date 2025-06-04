@@ -1,0 +1,10 @@
+<html>
+  <body>
+    <h1>{{title}}</h1>
+    <p>{{content}}</p>
+    <p>Transaction ID: {{metadata.transactionId}}</p>
+    {{#if actionUrl}}
+      <p><a href="{{actionUrl}}">View Transaction</a></p>
+    {{/if}}
+  </body>
+</html>
