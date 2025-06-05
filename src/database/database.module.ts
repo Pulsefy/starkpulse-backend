@@ -6,14 +6,14 @@ import { DatabaseService } from './database.service';
 import { DatabasePerformanceInterceptor } from './interceptors/database-performance.interceptor';
 import { QueryCacheService } from './services/query-cache.service';
 import { DatabaseHealthService } from './services/database-health.service';
-import * as redisStore from 'cache-manager-redis-store';
+import { redisStore } from 'cache-manager-ioredis-yet';
 
 @Global()
 @Module({
   imports: [
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
+      useFactory: (configService: ConfigService) => ({
         type: 'postgres',
         host: configService.get('DB_HOST', 'localhost'),
         port: configService.get('DB_PORT', 5432),
@@ -71,7 +71,7 @@ import * as redisStore from 'cache-manager-redis-store';
     // Redis Cache Module
     CacheModule.registerAsync({
       imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
+      useFactory: (configService: ConfigService) => ({
         store: redisStore,
         host: configService.get('REDIS_HOST', 'localhost'),
         port: configService.get('REDIS_PORT', 6379),
