@@ -1,0 +1,138 @@
+global:
+  smtp_smarthost: 'localhost:587'
+  smtp_from: 'alerts@yourcompany.com'
+  smtp_auth_username: 'alerts@yourcompany.com'
+  smtp_auth_password: 'your_email_password'
+  
+  # Slack configuration
+  slack_api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+
+route:
+  group_by: ['alertname', 'service']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 12h
+  receiver: 'default-receiver'
+  routes:
+    # Critical alerts go to multiple channels
+    - match:
+        severity: critical
+      receiver: 'critical-alerts'
+      group_wait: 10s
+      repeat_interval: 5m
+      
+    # Database alerts
+    - match:
+        service: postgres
+      receiver: 'database-alerts'
+      
+    # Application alerts
+    - match:
+        service: nestjs-app
+      receiver: 'application-alerts'
+      
+    # System alerts
+    - match:
+        service: system
+      receiver: 'system-alerts'
+
+receivers:
+  - name: 'default-receiver'
+    slack_configs:
+      - channel: '#alerts'
+        title: 'Monitoring Alert'
+        text: |
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Severity: {{ .Labels.severity }}
+          Service: {{ .Labels.service }}
+          {{ end }}
+
+  - name: 'critical-alerts'
+    email_configs:
+      - to: 'oncall@yourcompany.com'
+        subject: 'CRITICAL ALERT: {{ .GroupLabels.alertname }}'
+        body: |
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Severity: {{ .Labels.severity }}
+          Service: {{ .Labels.service }}
+          Started: {{ .StartsAt }}
+          {{ end }}
+    slack_configs:
+      - channel: '#critical-alerts'
+        color: 'danger'
+        title: '🚨 CRITICAL ALERT'
+        text: |
+          {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Service:* {{ .Labels.service }}
+          *Started:* {{ .StartsAt }}
+          {{ end }}
+    webhook_configs:
+      - url: 'http://your-webhook-endpoint.com/alerts'
+        send_resolved: true
+
+  - name: 'database-alerts'
+    slack_configs:
+      - channel: '#database-alerts'
+        color: 'warning'
+        title: '🗄️ Database Alert'
+        text: |
+          {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Service:* {{ .Labels.service }}
+          {{ end }}
+    email_configs:
+      - to: 'dba@yourcompany.com'
+        subject: 'Database Alert: {{ .GroupLabels.alertname }}'
+
+  - name: 'application-alerts'
+    slack_configs:
+      - channel: '#app-alerts'
+        color: 'warning'
+        title: '🚀 Application Alert'
+        text: |
+          {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Service:* {{ .Labels.service }}
+          {{ end }}
+    email_configs:
+      - to: 'developers@yourcompany.com'
+        subject: 'Application Alert: {{ .GroupLabels.alertname }}'
+
+  - name: 'system-alerts'
+    slack_configs:
+      - channel: '#system-alerts'
+        color: 'warning'
+        title: '🖥️ System Alert'
+        text: |
+          {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Instance:* {{ .Labels.instance }}
+          {{ end }}
+    email_configs:
+      - to: 'sysadmin@yourcompany.com'
+        subject: 'System Alert: {{ .GroupLabels.alertname }}'
+
+# Inhibition rules to prevent alert spam
+inhibit_rules:
+  # Inhibit lower severity alerts when critical alerts are firing
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'service']
+    
+  # Inhibit application alerts when the application is down
+  - source_match:
+      alertname: 'ApplicationDown'
+    target_match:
+      service: 'nestjs-app'
+    equal: ['instance']

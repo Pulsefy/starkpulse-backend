@@ -1,0 +1,189 @@
+# Monitoring and Development Makefile
+
+.PHONY: help install dev start build test clean monitoring-up monitoring-down health metrics logs
+
+# Default target
+help:
+	@echo "Available commands:"
+	@echo "  install        - Install dependencies"
+	@echo "  dev            - Start development server"
+	@echo "  start          - Start production server"
+	@echo "  build          - Build the application"
+	@echo "  test           - Run tests"
+	@echo "  clean          - Clean build artifacts"
+	@echo "  monitoring-up  - Start monitoring stack"
+	@echo "  monitoring-down- Stop monitoring stack"
+	@echo "  health         - Check application health"
+	@echo "  metrics        - View application metrics"
+	@echo "  logs           - View application logs"
+
+# Installation
+install:
+	npm install
+
+# Development
+dev:
+	npm run start:dev
+
+start:
+	npm run start:prod
+
+build:
+	npm run build
+
+test:
+	npm run test
+
+clean:
+	rm -rf dist node_modules/.cache
+
+# Monitoring Commands
+monitoring-up:
+	@echo "Starting monitoring stack..."
+	docker-compose -f docker-compose.monitoring.yml up -d
+	@echo "Waiting for services to be ready..."
+	sleep 30
+	@echo "Monitoring stack is ready!"
+	@echo "Grafana: http://localhost:3001 (admin/admin123)"
+	@echo "Prometheus: http://localhost:9090"
+	@echo "AlertManager: http://localhost:9093"
+
+monitoring-down:
+	@echo "Stopping monitoring stack..."
+	docker-compose -f docker-compose.monitoring.yml down
+
+monitoring-restart:
+	@echo "Restarting monitoring stack..."
+	docker-compose -f docker-compose.monitoring.yml restart
+
+# Health and Metrics
+health:
+	@echo "Checking application health..."
+	curl -s http://localhost:3000/health | jq '.' || echo "Application health check failed"
+
+health-live:
+	@echo "Checking liveness probe..."
+	curl -s http://localhost:3000/health/live | jq '.' || echo "Liveness check failed"
+
+health-ready:
+	@echo "Checking readiness probe..."
+	curl -s http://localhost:3000/health/ready | jq '.' || echo "Readiness check failed"
+
+metrics:
+	@echo "Fetching application metrics..."
+	curl -s http://localhost:3000/metrics
+
+# Log Commands
+logs:
+	docker-compose -f docker-compose.monitoring.yml logs -f app
+
+logs-monitoring:
+	docker-compose -f docker-compose.monitoring.yml logs -f prometheus grafana alertmanager
+
+logs-db:
+	docker-compose -f docker-compose.monitoring.yml logs -f postgres
+
+# Prometheus Management
+prometheus-reload:
+	@echo "Reloading Prometheus configuration..."
+	curl -X POST http://localhost:9090/-/reload
+
+prometheus-rules:
+	@echo "Checking Prometheus rules..."
+	curl -s http://localhost:9090/api/v1/rules | jq '.data.groups[].rules[] | {alert: .name, state: .state}'
+
+prometheus-targets:
+	@echo "Checking Prometheus targets..."
+	curl -s http://localhost:9090/api/v1/targets | jq '.data.activeTargets[] | {job: .labels.job, health: .health, lastScrape: .lastScrape}'
+
+# AlertManager Management
+alerts:
+	@echo "Checking active alerts..."
+	curl -s http://localhost:9093/api/v1/alerts | jq '.data[] | {alertname: .labels.alertname, status: .status.state, severity: .labels.severity}'
+
+alerts-silence:
+	@echo "Creating alert silence (requires alertname parameter)..."
+	@echo "Usage: make alerts-silence ALERTNAME=HighErrorRate DURATION=1h"
+	@if [ -z "$(ALERTNAME)" ]; then echo "ALERTNAME parameter is required"; exit 1; fi
+	curl -X POST http://localhost:9093/api/v1/silences \
+		-H "Content-Type: application/json" \
+		-d '{"matchers":[{"name":"alertname","value":"$(ALERTNAME)"}],"startsAt":"$(shell date -u '+%Y-%m-%dT%H:%M:%S.000Z')","endsAt":"$(shell date -u -d '+$(or $(DURATION),1h)' '+%Y-%m-%dT%H:%M:%S.000Z')","comment":"Manual silence via Makefile","createdBy":"makefile"}'
+
+# Testing Commands
+test-alert:
+	@echo "Triggering test alert..."
+	curl -X POST http://localhost:3000/test-alert
+
+test-metrics:
+	@echo "Testing metrics collection..."
+	for i in {1..10}; do curl -s http://localhost:3000/health > /dev/null; done
+	@echo "Generated test traffic, check metrics endpoint"
+
+# Database Commands
+db-health:
+	@echo "Checking database health..."
+	docker-compose -f docker-compose.monitoring.yml exec postgres pg_isready -U postgres
+
+db-metrics:
+	@echo "Checking database metrics..."
+	curl -s http://localhost:9187/metrics | grep -E "(pg_up|pg_stat_database_numbackends)"
+
+# Setup Commands
+setup-monitoring:
+	@echo "Setting up monitoring configuration..."
+	mkdir -p monitoring/grafana/provisioning/datasources
+	mkdir -p monitoring/grafana/provisioning/dashboards
+	mkdir -p monitoring/grafana/dashboards
+	cp monitoring.env.example .env.monitoring
+	@echo "Setup complete! Please review and update .env.monitoring"
+
+init-grafana:
+	@echo "Initializing Grafana with default dashboards..."
+	sleep 10
+	curl -X POST http://admin:admin123@localhost:3001/api/datasources \
+		-H "Content-Type: application/json" \
+		-d '{"name":"Prometheus","type":"prometheus","url":"http://prometheus:9090","access":"proxy","isDefault":true}'
+
+# Backup and Restore
+backup-config:
+	@echo "Backing up monitoring configuration..."
+	mkdir -p backups/$(shell date +%Y%m%d_%H%M%S)
+	cp -r monitoring/ backups/$(shell date +%Y%m%d_%H%M%S)/
+	tar -czf backups/monitoring_config_$(shell date +%Y%m%d_%H%M%S).tar.gz monitoring/
+
+# Performance Testing
+load-test:
+	@echo "Running basic load test..."
+	@if ! command -v ab > /dev/null; then echo "Apache Bench (ab) is required for load testing"; exit 1; fi
+	ab -n 1000 -c 10 http://localhost:3000/health
+
+stress-test:
+	@echo "Running stress test..."
+	@if ! command -v ab > /dev/null; then echo "Apache Bench (ab) is required for stress testing"; exit 1; fi
+	ab -n 5000 -c 50 -t 60 http://localhost:3000/health
+
+# Cleanup Commands
+clean-monitoring:
+	@echo "Cleaning up monitoring data..."
+	docker-compose -f docker-compose.monitoring.yml down -v
+	docker volume prune -f
+
+clean-all: clean clean-monitoring
+	@echo "Full cleanup complete"
+
+# Status Commands
+status:
+	@echo "=== Application Status ==="
+	@curl -s http://localhost:3000/health > /dev/null && echo "✅ Application: Healthy" || echo "❌ Application: Down"
+	@echo ""
+	@echo "=== Monitoring Stack Status ==="
+	@curl -s http://localhost:9090/-/healthy > /dev/null && echo "✅ Prometheus: Healthy" || echo "❌ Prometheus: Down"
+	@curl -s http://localhost:3001/api/health > /dev/null && echo "✅ Grafana: Healthy" || echo "❌ Grafana: Down"
+	@curl -s http://localhost:9093/-/healthy > /dev/null && echo "✅ AlertManager: Healthy" || echo "❌ AlertManager: Down"
+
+quick-start: install monitoring-up
+	@echo "Quick start complete!"
+	@echo "Application will be available at: http://localhost:3000"
+	@echo "Health check: http://localhost:3000/health"
+	@echo "Metrics: http://localhost:3000/metrics"
+	@echo "Grafana: http://localhost:3001 (admin/admin123)"
