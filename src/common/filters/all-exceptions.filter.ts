@@ -17,15 +17,22 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
 
-    const status =
-      exception instanceof HttpException
-        ? exception.getStatus()
-        : HttpStatus.INTERNAL_SERVER_ERROR;
+    // Enhanced error handling for BlockchainError
+    let status = HttpStatus.INTERNAL_SERVER_ERROR;
+    let message: string | object = 'Internal server error';
+    let errorCode: string | undefined = undefined;
+    let errorContext: any = undefined;
 
-    const message =
-      exception instanceof HttpException
-        ? exception.getResponse()
-        : 'Internal server error';
+    if ((exception as any)?.code && (exception as any)?.name === 'BlockchainError') {
+      // BlockchainError detected
+      errorCode = (exception as any).code;
+      message = (exception as any).message;
+      errorContext = (exception as any).context;
+      status = HttpStatus.BAD_GATEWAY;
+    } else if (exception instanceof HttpException) {
+      status = exception.getStatus();
+      message = exception.getResponse();
+    }
 
     const errorResponse = {
       statusCode: status,
@@ -33,6 +40,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
       path: request.url,
       method: request.method,
       message: typeof message === 'object' ? (message as any).message : message,
+      ...(errorCode && { errorCode }),
+      ...(errorContext && { errorContext }),
     };
 
     this.logger.error(

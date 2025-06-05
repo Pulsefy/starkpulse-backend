@@ -9,8 +9,9 @@ import {
   InvokeFunctionResponse,
   num,
 } from 'starknet';
-import * as retryModule from 'ts-retry-promise';
-const { retry } = retryModule;
+import { retryWithBackoff } from '../../common/errors/retry-with-backoff';
+import { CircuitBreaker } from '../../common/errors/circuit-breaker';
+import { BlockchainError, BlockchainErrorCode } from '../../common/errors/blockchain-error';
 import {
   StarknetEmittedEvent,
   EventFilter,
@@ -20,6 +21,7 @@ import {
 export class StarknetService implements OnModuleInit {
   private readonly logger = new Logger(StarknetService.name);
   private provider: RpcProvider;
+  private readonly rpcBreaker = new CircuitBreaker({ failureThreshold: 3, cooldownPeriodMs: 10000 });
 
   constructor(private configService: ConfigService) {}
 
@@ -56,57 +58,101 @@ export class StarknetService implements OnModuleInit {
   }
 
   async getLatestBlockNumber(): Promise<number> {
-    return retry(
-      async () => {
-        const block = await this.provider.getBlock('latest');
-        return Number(block.block_number);
-      },
-      { retries: 3, delay: 1000 },
-    ).catch((err) => {
-      this.logger.error('Failed to fetch latest block number', err);
-      throw err;
-    });
+    try {
+      return await this.rpcBreaker.exec(() =>
+        retryWithBackoff(
+          async () => {
+            const block = await this.provider.getBlock('latest');
+            return Number(block.block_number);
+          },
+          {
+            retries: 3,
+            initialDelayMs: 500,
+            maxDelayMs: 4000,
+            onRetry: (error, attempt) => {
+              this.logger.warn(`Retry ${attempt} for getLatestBlockNumber due to error: ${error.message}`);
+            },
+          }
+        )
+      );
+    } catch (error) {
+      this.logger.error('Failed to fetch latest block number', error);
+      throw new BlockchainError(
+        BlockchainErrorCode.EXECUTION_FAILED,
+        'Failed to fetch latest block number',
+        { originalError: error.message }
+      );
+    }
   }
 
   async getBlockEvents(blockNumber: number): Promise<StarknetEmittedEvent[]> {
     try {
-      const blockWithTxs = await this.provider.getBlockWithTxs(blockNumber);
-      return this.formatBlockEvents(blockWithTxs);
-    } catch (error) {
-      this.logger.error(
-        `Failed to get events for block ${blockNumber}: ${error.message}`,
+      return await this.rpcBreaker.exec(() =>
+        retryWithBackoff(
+          async () => {
+            const blockWithTxs = await this.provider.getBlockWithTxs(blockNumber);
+            return this.formatBlockEvents(blockWithTxs);
+          },
+          {
+            retries: 3,
+            initialDelayMs: 500,
+            maxDelayMs: 4000,
+            onRetry: (error, attempt) => {
+              this.logger.warn(`Retry ${attempt} for getBlockEvents(${blockNumber}) due to error: ${error.message}`);
+            },
+          }
+        )
       );
-      throw error;
+    } catch (error) {
+      this.logger.error(`Failed to get events for block ${blockNumber}: ${error.message}`);
+      throw new BlockchainError(
+        BlockchainErrorCode.EXECUTION_FAILED,
+        `Failed to get events for block ${blockNumber}`,
+        { blockNumber, originalError: error.message }
+      );
     }
   }
 
   async getEvents(filter: EventFilter): Promise<StarknetEmittedEvent[]> {
-    return retry(
-      async () => {
-        const { fromBlock, toBlock, contractAddresses } = filter;
-
-        const events = await this.provider.getEvents({
-          from_block: { block_number: fromBlock || 0 },
-          to_block: toBlock ? { block_number: toBlock } : 'latest',
-          address: contractAddresses?.[0],
-          keys: [],
-          chunk_size: 100, // Add the required chunk_size parameter
-        });
-
-        return events.events.map((event) => ({
-          from_address: event.from_address,
-          keys: event.keys,
-          data: event.data,
-          block_hash: event.block_hash,
-          block_number: Number(event.block_number),
-          transaction_hash: event.transaction_hash,
-        }));
-      },
-      { retries: 3, delay: 1000 },
-    ).catch((err) => {
-      this.logger.error('Failed to fetch events', err);
-      throw err;
-    });
+    try {
+      return await this.rpcBreaker.exec(() =>
+        retryWithBackoff(
+          async () => {
+            const { fromBlock, toBlock, contractAddresses } = filter;
+            const events = await this.provider.getEvents({
+              from_block: { block_number: fromBlock || 0 },
+              to_block: toBlock ? { block_number: toBlock } : 'latest',
+              address: contractAddresses?.[0],
+              keys: [],
+              chunk_size: 100,
+            });
+            return events.events.map((event) => ({
+              from_address: event.from_address,
+              keys: event.keys,
+              data: event.data,
+              block_hash: event.block_hash,
+              block_number: Number(event.block_number),
+              transaction_hash: event.transaction_hash,
+            }));
+          },
+          {
+            retries: 3,
+            initialDelayMs: 500,
+            maxDelayMs: 4000,
+            onRetry: (error, attempt) => {
+              this.logger.warn(`Retry ${attempt} for getEvents due to error: ${error.message}`);
+            },
+          }
+        )
+      );
+    } catch (error) {
+      this.logger.error('Failed to fetch events', error);
+      throw new BlockchainError(
+        BlockchainErrorCode.EXECUTION_FAILED,
+        'Failed to fetch events',
+        { filter, originalError: error.message }
+      );
+    }
   }
 
   async submitTransaction(
@@ -118,7 +164,11 @@ export class StarknetService implements OnModuleInit {
       throw new Error('Account signing not yet implemented.');
     } catch (error) {
       this.logger.error('Failed to submit transaction', error);
-      throw error;
+      throw new BlockchainError(
+        BlockchainErrorCode.EXECUTION_FAILED,
+        'Failed to submit transaction',
+        { call, originalError: error.message }
+      );
     }
   }
 
@@ -129,15 +179,33 @@ export class StarknetService implements OnModuleInit {
     calldata: any[],
   ) {
     try {
-      const contract = new Contract(abi, contractAddress, this.provider);
-      const result = await contract.call(functionName, calldata);
-      return result;
+      return await this.rpcBreaker.exec(() =>
+        retryWithBackoff(
+          async () => {
+            const contract = new Contract(abi, contractAddress, this.provider);
+            const result = await contract.call(functionName, calldata);
+            return result;
+          },
+          {
+            retries: 3,
+            initialDelayMs: 500,
+            maxDelayMs: 4000,
+            onRetry: (error, attempt) => {
+              this.logger.warn(`Retry ${attempt} for readContract(${functionName}) @ ${contractAddress} due to error: ${error.message}`);
+            },
+          }
+        )
+      );
     } catch (error) {
       this.logger.error(
         `Contract read error: ${functionName} @ ${contractAddress}`,
         error,
       );
-      throw error;
+      throw new BlockchainError(
+        BlockchainErrorCode.EXECUTION_FAILED,
+        `Contract read error: ${functionName} @ ${contractAddress}`,
+        { contractAddress, functionName, calldata, originalError: error.message }
+      );
     }
   }
 
@@ -147,16 +215,34 @@ export class StarknetService implements OnModuleInit {
     abi: any,
   ): Promise<string> {
     try {
-      const contract = new Contract(abi, contractAddress, this.provider);
-      const result = await contract.call('balanceOf', [userAddress]);
-      const balance = result[0]; // Access the first element of the result array
-      return num.toHex(balance);
+      return await this.rpcBreaker.exec(() =>
+        retryWithBackoff(
+          async () => {
+            const contract = new Contract(abi, contractAddress, this.provider);
+            const result = await contract.call('balanceOf', [userAddress]);
+            const balance = result[0];
+            return num.toHex(balance);
+          },
+          {
+            retries: 3,
+            initialDelayMs: 500,
+            maxDelayMs: 4000,
+            onRetry: (error, attempt) => {
+              this.logger.warn(`Retry ${attempt} for getErc20Balance(${userAddress}) @ ${contractAddress} due to error: ${error.message}`);
+            },
+          }
+        )
+      );
     } catch (error) {
       this.logger.error(
         `Error getting ERC20 balance for ${userAddress} @ ${contractAddress}`,
         error,
       );
-      throw error;
+      throw new BlockchainError(
+        BlockchainErrorCode.EXECUTION_FAILED,
+        `Error getting ERC20 balance for ${userAddress} @ ${contractAddress}`,
+        { contractAddress, userAddress, originalError: error.message }
+      );
     }
   }
 
