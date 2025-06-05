@@ -1,3 +1,10 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call */
+/* eslint-disable prettier/prettier */
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+import Sentiment from 'sentiment';
+
+const sentiment = new Sentiment();
+
 // Moving Average
 export function calculateSMA(data: number[], period: number): number[] {
   return data.map((_, idx) => {
@@ -18,7 +25,7 @@ export function calculateEMA(data: number[], period: number): number[] {
 
 // RSI (Relative Strength Index)
 export function calculateRSI(data: number[], period: number = 14): number[] {
-  let rsi: number[] = [];
+  const rsi: number[] = [];
   let gains = 0, losses = 0;
 
   for (let i = 1; i <= period; i++) {
@@ -48,8 +55,8 @@ export function calculateRSI(data: number[], period: number = 14): number[] {
 // Pearson Correlation
 export function pearsonCorrelation(x: number[], y: number[]): number {
   const n = x.length;
-  const meanX = x.reduce((a, b) => a + b) / n;
-  const meanY = y.reduce((a, b) => a + b) / n;
+  const meanX = x.reduce((a, b) => a + b, 0) / n;
+  const meanY = y.reduce((a, b) => a + b, 0) / n;
 
   const numerator = x.reduce((acc, xi, i) => acc + (xi - meanX) * (y[i] - meanY), 0);
   const denominatorX = Math.sqrt(x.reduce((acc, xi) => acc + Math.pow(xi - meanX, 2), 0));
@@ -63,4 +70,25 @@ export function calculateVolatility(data: number[]): number {
   const mean = data.reduce((a, b) => a + b, 0) / data.length;
   const variance = data.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / data.length;
   return Math.sqrt(variance);
+}
+
+// Sentiment Analysis
+interface SentimentResult {
+  score: number;
+  comparative: number;
+}
+
+export function analyzeSentiment(texts: string[]): SentimentResult {
+  if (!texts || texts.length === 0) {
+    return { score: 0, comparative: 0 };
+  }
+
+  const results = texts.map((text) => sentiment.analyze(text) as Sentiment.AnalysisResult);
+  const totalScore = results.reduce((sum, r) => sum + r.score, 0);
+  const totalComparative = results.reduce((sum, r) => sum + r.comparative, 0);
+
+  return {
+    score: totalScore,
+    comparative: totalComparative / results.length,
+  };
 }
