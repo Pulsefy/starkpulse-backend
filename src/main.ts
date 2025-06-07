@@ -11,11 +11,18 @@ import * as cookieParser from 'cookie-parser';
 import { MarketGateway } from './market/market.gateway';
 import { MarketService } from './market/market.service';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { LoggingService } from './common/services/logging.service';
+import { PerformanceLogger } from './common/utils/performance-logger';
 
 async function bootstrap() {
-  const logger = new Logger('Bootstrap');
+  const app = await NestFactory.create(AppModule, {
+    bufferLogs: true,
+  });
 
-  const app = await NestFactory.create(AppModule);
+  // Initialize logging service
+  const loggingService = app.get(LoggingService);
+  app.useLogger(loggingService);
+  PerformanceLogger.initialize(loggingService);
 
   const marketGateway = app.get(MarketGateway);
   const marketService = app.get(MarketService);
@@ -44,7 +51,7 @@ async function bootstrap() {
   app.useGlobalFilters(new AllExceptionsFilter(), new HttpExceptionFilter());
 
   // Global interceptors
-  app.useGlobalInterceptors(new LoggingInterceptor());
+  app.useGlobalInterceptors(new LoggingInterceptor(loggingService));
 
   // Swagger/OpenAPI setup
   const swaggerConfig = new DocumentBuilder()
@@ -70,8 +77,8 @@ async function bootstrap() {
 
   await app.listen(port);
 
-  logger.log(`Application is running on: http://localhost:${port}/api`);
-  logger.log(`Environment: ${configService.environment}`);
+  loggingService.log(`Application is running on: http://localhost:${port}/api`);
+  loggingService.log(`Environment: ${configService.environment}`);
 }
 
 bootstrap();
