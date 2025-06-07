@@ -78,6 +78,13 @@ export class Transaction {
   @Column({ type: 'integer', default: 0 })
   confirmations: number;
 
+  @Column({ default: 0 })
+  retries: number;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  method?: string;
+
+
   @CreateDateColumn()
   createdAt: Date;
 
