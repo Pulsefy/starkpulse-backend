@@ -447,4 +447,18 @@ export class NotificationsService {
       order: { createdAt: 'DESC' },
     });
   }
+
+  async sendTransactionNotification(tx, eventType) {
+  const messages = {
+    transaction_confirmed: 'Transaction confirmed!',
+    transaction_failed: 'Transaction failed!',
+    transaction_rejected: 'Transaction rejected!',
+  };
+
+  const message = messages[eventType];
+  if (!message) return;
+
+  // Replace this with actual email, in-app, or push notification logic
+  console.log(`Notify ${tx.userId}: ${message}`);
+}
 }
