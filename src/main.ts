@@ -1,4 +1,3 @@
-// src/main.ts
 import { NestFactory } from '@nestjs/core';
 import { Logger } from '@nestjs/common';
 import { AppModule } from './app.module';
@@ -23,7 +22,7 @@ async function bootstrap() {
     bufferLogs: true,
   });
 
-  // Initialize logging service
+
   const loggingService = app.get(LoggingService);
   app.useLogger(loggingService);
   PerformanceLogger.initialize(loggingService);
@@ -38,7 +37,7 @@ async function bootstrap() {
   const configService = app.get(ConfigService);  app.setGlobalPrefix('api');
   app.enableCors();
 
-  // Use cookie-parser middleware for handling cookies
+
   app.use(cookieParser());
 
   app.useGlobalPipes(
@@ -54,7 +53,6 @@ async function bootstrap() {
 
   app.use(helmet());
 
-  // Global interceptors
   app.useGlobalInterceptors(new LoggingInterceptor(loggingService));
   (app as any).set?.('trust proxy', 1);
 
