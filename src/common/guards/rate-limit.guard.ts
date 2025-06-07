@@ -2,86 +2,134 @@ import {
   Injectable,
   CanActivate,
   ExecutionContext,
-  HttpException,
-  HttpStatus,
-  SetMetadata,
+  Logger,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { Logger } from '@nestjs/common';
-
-interface RateLimitOptions {
-  points: number; // Number of requests
-  duration: number; // Time window in seconds
-  errorMessage?: string;
-}
-
-export const RATE_LIMIT_KEY = 'rate_limit';
-
-// Decorator to apply rate limiting to controllers or routes
-export const RateLimit = (options: RateLimitOptions) =>
-  SetMetadata(RATE_LIMIT_KEY, options);
+import { ConfigService } from '@nestjs/config';
+import { RateLimitService } from '../services/rate-limit.service';
+import { RateLimitConfig } from '../interfaces/rate-limit.interface';
+import { RateLimitType } from '../enums/rate-limit.enum';
+import { RATE_LIMIT_KEY, RateLimitException } from '../decorators/rate-limit.decorator';
 
 @Injectable()
 export class RateLimitGuard implements CanActivate {
   private readonly logger = new Logger(RateLimitGuard.name);
-  private readonly store = new Map<
-    string,
-    { count: number; resetTime: number }
-  >();
 
-  constructor(private reflector: Reflector) {}
+  constructor(
+    private readonly reflector: Reflector,
+    private readonly rateLimitService: RateLimitService,
+    private readonly configService: ConfigService,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const handler = context.getHandler();
-    const options = this.reflector.get<RateLimitOptions>(
+    const request = context.switchToHttp().getRequest();
+    const response = context.switchToHttp().getResponse();
+
+    const routeConfig = this.reflector.getAllAndOverride<Partial<RateLimitConfig>>(
       RATE_LIMIT_KEY,
-      handler,
+      [context.getHandler(), context.getClass()],
     );
 
-    if (!options) {
-      return true; // No rate limiting applied
+    if (!routeConfig) {
+      return true; 
     }
 
-    const request = context.switchToHttp().getRequest();
-    const ip = request.ip || 'unknown';
-    const endpoint = request.path;
-    const key = `${ip}:${endpoint}`;
+    if (routeConfig.skipIf?.(request)) {
+      return true;
+    }
 
-    const now = Date.now();
-    const record = this.store.get(key) || {
-      count: 0,
-      resetTime: now + options.duration * 1000,
+    const defaultConfig = this.configService.get<RateLimitConfig>('rateLimit.default') ?? { windowMs: 60000, max: 100 };
+    const config: RateLimitConfig = {
+      ...defaultConfig,
+      ...routeConfig,
+      windowMs: routeConfig.windowMs ?? defaultConfig.windowMs ?? 60000,
+      max: routeConfig.max ?? defaultConfig.max ?? 100,
     };
 
-    // Reset counter if the time window has passed
-    if (now > record.resetTime) {
-      record.count = 0;
-      record.resetTime = now + options.duration * 1000;
-    }
+    const userId = request.user?.id;
+    const userRoles = request.user?.roles;
+    const ipAddress = this.getClientIp(request);
+    const endpoint = `${request.method}:${request.route?.path || request.path}`;
 
-    // Increment request count
-    record.count += 1;
-    this.store.set(key, record);
+    const keyType = this.determineKeyType(config, userId, ipAddress);
+    const key = this.rateLimitService.generateKey(keyType, userId, ipAddress, endpoint);
 
-    // Check if rate limit exceeded
-    if (record.count > options.points) {
-      const waitTime = Math.ceil((record.resetTime - now) / 1000);
-      this.logger.warn(
-        `Rate limit exceeded for ${key}. Requests: ${record.count}, Limit: ${options.points}`,
+    try {
+      const result = await this.rateLimitService.checkRateLimit(
+        key,
+        config,
+        userId,
+        userRoles,
+        ipAddress,
       );
 
-      throw new HttpException(
-        {
-          statusCode: HttpStatus.TOO_MANY_REQUESTS,
-          message:
-            options.errorMessage ||
-            'Too many requests, please try again later.',
-          waitTime,
-        },
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
+      this.addRateLimitHeaders(response, result, config);
+
+      if (!result.allowed) {
+        const retryAfter = Math.ceil((result.resetTime.getTime() - Date.now()) / 1000);
+        
+        this.logger.warn(
+          `Rate limit exceeded in guard for ${userId ? `user ${userId}` : `IP ${ipAddress}`} ` +
+          `on ${endpoint}. Key: ${key}`
+        );
+
+        throw new RateLimitException(
+          typeof config.message === 'string' ? config.message : 'Rate limit exceeded',
+          retryAfter,
+          config.max,
+          result.remaining,
+          result.resetTime,
+        );
+      }
+
+      return true;
+    } catch (error) {
+      if (error instanceof RateLimitException) {
+        throw error;
+      }
+
+      this.logger.error('Rate limit guard error:', error);
+      return true;
+    }
+  }
+
+  private determineKeyType(config: RateLimitConfig, userId?: number, ipAddress?: string): RateLimitType {
+    if (config.keyGenerator) {
+      return RateLimitType.COMBINED; 
     }
 
-    return true;
+    if (userId && ipAddress) {
+      return RateLimitType.COMBINED;
+    } else if (userId) {
+      return RateLimitType.PER_USER;
+    } else if (ipAddress) {
+      return RateLimitType.PER_IP;
+    } else {
+      return RateLimitType.GLOBAL;
+    }
+  }
+
+  private getClientIp(request: any): string {
+    return (
+      request.headers['x-forwarded-for'] ||
+      request.headers['x-real-ip'] ||
+      request.connection?.remoteAddress ||
+      request.socket?.remoteAddress ||
+      'unknown'
+    );
+  }
+
+  private addRateLimitHeaders(response: any, result: any, config: RateLimitConfig): void {
+    if (config.headers !== false) {
+      response.setHeader('X-RateLimit-Limit', config.max.toString());
+      response.setHeader('X-RateLimit-Remaining', result.remaining.toString());
+      response.setHeader('X-RateLimit-Reset', Math.ceil(result.resetTime.getTime() / 1000).toString());
+      response.setHeader('X-RateLimit-Used', result.totalHits.toString());
+
+      if (!result.allowed) {
+        const retryAfter = Math.ceil((result.resetTime.getTime() - Date.now()) / 1000);
+        response.setHeader('Retry-After', retryAfter.toString());
+      }
+    }
   }
 }

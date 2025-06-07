@@ -6,13 +6,17 @@ import { ConfigService } from './config/config.service';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
-import { ValidationPipe } from './common/pipes/validation.pipe';
+import { ValidationPipe } from '@nestjs/common';
 import * as cookieParser from 'cookie-parser';
 import { MarketGateway } from './market/market.gateway';
 import { MarketService } from './market/market.service';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { LoggingService } from './common/services/logging.service';
 import { PerformanceLogger } from './common/utils/performance-logger';
+import helmet from 'helmet';
+import { RateLimitLoggingInterceptor } from './common/interceptors/rate-limit-logging.interceptor';
+import { AppConfig } from './config';
+
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -31,54 +35,71 @@ async function bootstrap() {
     marketGateway.broadcastMarketUpdate(data);
   });
 
-  // Get application configuration
-  const configService = app.get(ConfigService);
-  const port = configService.port;
-
-  // Global prefix for all routes
-  app.setGlobalPrefix('api');
-
-  // Enable CORS for frontend
+  const configService = app.get(ConfigService);  app.setGlobalPrefix('api');
   app.enableCors();
 
   // Use cookie-parser middleware for handling cookies
   app.use(cookieParser());
 
-  // Global validation pipes
-  app.useGlobalPipes(new ValidationPipe());
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+      forbidNonWhitelisted: true,
+      transformOptions: {
+        enableImplicitConversion: true,
+      },
+    }),
+  );
 
-  // Global filters for exception handling
-  app.useGlobalFilters(new AllExceptionsFilter(), new HttpExceptionFilter());
+  app.use(helmet());
 
   // Global interceptors
   app.useGlobalInterceptors(new LoggingInterceptor(loggingService));
+  (app as any).set?.('trust proxy', 1);
 
-  // Swagger/OpenAPI setup
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle('StarkPulse API')
-    .setDescription('API documentation for StarkPulse backend. All secured endpoints require a Bearer JWT token.')
-    .setVersion('1.0')
-    .addBearerAuth({
-      type: 'http',
-      scheme: 'bearer',
-      bearerFormat: 'JWT',
-      name: 'Authorization',
-      description: 'Enter JWT token',
-      in: 'header',
-    }, 'Bearer')
-    .build();
-  const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('api/docs', app, swaggerDocument, {
-    swaggerOptions: {
-      persistAuthorization: true,
-    },
-    customSiteTitle: 'StarkPulse API Docs',
+  app.useGlobalPipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      disableErrorMessages: configService.get('environment') === 'production',
+    }),
+  );
+
+  app.useGlobalFilters(new AllExceptionsFilter());
+
+  app.useGlobalInterceptors(app.get(RateLimitLoggingInterceptor));
+
+  app.enableCors({
+    origin: typeof configService.get('corsOrigins' as keyof AppConfig) === 'string'
+      ? (configService.get('corsOrigins' as keyof AppConfig) as string).split(',')
+      : ['http://localhost:3000'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true,
   });
 
-  await app.listen(port);
+  app.setGlobalPrefix('api/v1');
 
+  const port = configService.get('port' as keyof AppConfig) || 3000;
   loggingService.log(`Application is running on: http://localhost:${port}/api`);
   loggingService.log(`Environment: ${configService.environment}`);
+  const config = new DocumentBuilder()
+    .setTitle('API with Rate Limiting')
+    .setDescription('API with comprehensive rate limiting implementation')
+    .setVersion('1.0')
+    .addBearerAuth()
+    .addTag('Rate Limiting', 'Rate limiting endpoints and configuration')
+    .build();
+
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api/docs', app, document);
+
+  loggingService.log(`🚀 Application is running on: http://localhost:${port}`);
+  loggingService.log(`📚 Swagger documentation: http://localhost:${port}/api/docs`);
+  const rateLimitConfig = configService.get('rateLimit' as keyof AppConfig) as any;
+  loggingService.log(`🛡️ Rate limiting is enabled with ${rateLimitConfig?.store?.type} store`);
 }
 
 bootstrap();
