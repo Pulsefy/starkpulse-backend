@@ -1,4 +1,3 @@
-// src/main.ts
 import { NestFactory } from '@nestjs/core';
 import { Logger } from '@nestjs/common';
 import { AppModule } from './app.module';
@@ -6,20 +5,27 @@ import { ConfigService } from './config/config.service';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
-import { ValidationPipe } from './common/pipes/validation.pipe';
+import { ValidationPipe } from '@nestjs/common';
 import * as cookieParser from 'cookie-parser';
 import { MarketGateway } from './market/market.gateway';
 import { MarketService } from './market/market.service';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { LoggingService } from './common/services/logging.service';
+import { PerformanceLogger } from './common/utils/performance-logger';
 import helmet from 'helmet';
 import { RateLimitLoggingInterceptor } from './common/interceptors/rate-limit-logging.interceptor';
 import { AppConfig } from './config';
 
 
 async function bootstrap() {
-  const logger = new Logger('Bootstrap');
+  const app = await NestFactory.create(AppModule, {
+    bufferLogs: true,
+  });
 
-  const app = await NestFactory.create(AppModule);
+
+  const loggingService = app.get(LoggingService);
+  app.useLogger(loggingService);
+  PerformanceLogger.initialize(loggingService);
 
   const marketGateway = app.get(MarketGateway);
   const marketService = app.get(MarketService);
@@ -31,7 +37,7 @@ async function bootstrap() {
   const configService = app.get(ConfigService);  app.setGlobalPrefix('api');
   app.enableCors();
 
-  // Use cookie-parser middleware for handling cookies
+
   app.use(cookieParser());
 
   app.useGlobalPipes(
@@ -47,6 +53,7 @@ async function bootstrap() {
 
   app.use(helmet());
 
+  app.useGlobalInterceptors(new LoggingInterceptor(loggingService));
   (app as any).set?.('trust proxy', 1);
 
   app.useGlobalPipes(
@@ -73,6 +80,9 @@ async function bootstrap() {
 
   app.setGlobalPrefix('api/v1');
 
+  const port = configService.get('port' as keyof AppConfig) || 3000;
+  loggingService.log(`Application is running on: http://localhost:${port}/api`);
+  loggingService.log(`Environment: ${configService.environment}`);
   const config = new DocumentBuilder()
     .setTitle('API with Rate Limiting')
     .setDescription('API with comprehensive rate limiting implementation')
@@ -84,12 +94,10 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
 
-  const port = configService.get('port' as keyof AppConfig) || 3000;
-
-  logger.log(`🚀 Application is running on: http://localhost:${port}`);
-  logger.log(`📚 Swagger documentation: http://localhost:${port}/api/docs`);
+  loggingService.log(`🚀 Application is running on: http://localhost:${port}`);
+  loggingService.log(`📚 Swagger documentation: http://localhost:${port}/api/docs`);
   const rateLimitConfig = configService.get('rateLimit' as keyof AppConfig) as any;
-  logger.log(`🛡️ Rate limiting is enabled with ${rateLimitConfig?.store?.type} store`);
+  loggingService.log(`🛡️ Rate limiting is enabled with ${rateLimitConfig?.store?.type} store`);
 }
 
 bootstrap();
