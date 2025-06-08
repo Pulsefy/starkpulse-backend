@@ -22,10 +22,61 @@ export class TransactionService {
     @InjectRepository(TransactionEvent)
     private transactionEventRepository: Repository<TransactionEvent>,
 
+    @InjectRepository(Transaction)
+    private readonly txRepo: Repository<Transaction>,
+
     private transactionMonitorService: TransactionMonitorService,
 
     private transactionIndexService: TransactionIndexService,
+
   ) {}
+
+   categorizeTransaction(functionName: string): TransactionType {
+    const fn = functionName?.toLowerCase();
+    if (fn?.includes('transfer')) return TransactionType.TRANSFER;
+    if (fn?.includes('swap')) return TransactionType.SWAP;
+    if (fn?.includes('liquidity')) return TransactionType.LIQUIDITY;
+    if (fn?.includes('stake') && !fn.includes('unstake')) return TransactionType.STAKE;
+    if (fn?.includes('unstake')) return TransactionType.UNSTAKE;
+    if (fn?.includes('claim')) return TransactionType.CLAIM;
+    return TransactionType.OTHER;
+  }
+
+  detectAnomalies(tx: Transaction): string[] {
+    const anomalies: string[] = [];
+    if (tx.value > 100_000) anomalies.push('high_value');
+    if (tx.status === TransactionStatus.FAILED && tx.retries > 3) anomalies.push('repeated_failures');
+    if (tx.type === TransactionType.OTHER) anomalies.push('unknown_function');
+    return anomalies;
+  }
+
+   async getUserAnalytics(userId: string) {
+    const total = await this.txRepo.count({ where: { userId } });
+    const confirmed = await this.txRepo.count({ where: { userId, status: TransactionStatus.CONFIRMED } });
+    const failed = await this.txRepo.count({ where: { userId, status: TransactionStatus.FAILED } });
+
+    const mostCommonType = await this.txRepo
+      .createQueryBuilder('tx')
+      .select('tx.type')
+      .addSelect('COUNT(*)', 'count')
+      .where('tx.userId = :userId', { userId })
+      .groupBy('tx.type')
+      .orderBy('count', 'DESC')
+      .getRawOne();
+
+    return {
+      total,
+      confirmed,
+      failed,
+      mostCommonType: mostCommonType?.tx_type || 'unknown',
+    };
+  }
+
+  // Mock Blockchain API check
+  private async mockBlockchainCheck(hash: string): Promise<TransactionStatus> {
+    const statuses = [TransactionStatus.CONFIRMED, TransactionStatus.FAILED, TransactionStatus.PENDING];
+    return statuses[Math.floor(Math.random() * statuses.length)];
+  }
 
   async create(
     createTransactionDto: CreateTransactionDto,

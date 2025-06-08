@@ -94,6 +94,15 @@ export class CreateNotificationDto {
   imageUrl?: string;
 
   @ApiPropertyOptional({
+  description: 'Which template to use (filename without extension)',
+  example: 'transaction_confirmed',
+})
+@IsString()
+@IsOptional()
+templateKey?: string;
+
+
+  @ApiPropertyOptional({
     description: 'When the notification should expire',
     example: '2023-12-31T23:59:59Z',
   })
