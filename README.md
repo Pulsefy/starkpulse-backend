@@ -834,4 +834,3 @@ consumer
 @UseGuards(RateLimitGuard)
 @RateLimit({ points: 10, duration: 3600 })
 async login(@Body() loginDto: LoginDto) { ... }
-```
