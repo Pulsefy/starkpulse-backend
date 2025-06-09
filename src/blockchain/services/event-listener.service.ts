@@ -7,7 +7,7 @@ import {
 import { ConfigService } from '../../config/config.service';
 import { StarknetService } from './starknet.service';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, MoreThan } from 'typeorm';
+import { Repository } from 'typeorm';
 import { ContractEntity } from '../entities/contract.entity';
 import { EventEntity } from '../entities/event.entity';
 import { StarknetEmittedEvent } from '../interfaces/starknet-event.interface';
@@ -69,75 +69,66 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
 
   private async pollForEvents() {
     try {
-      // Get all active contracts
       const activeContracts = await this.contractRepository.find({
         where: { isActive: true },
       });
 
-      if (activeContracts.length === 0) {
-        return;
-      }
+      if (activeContracts.length === 0) return;
 
-      // Get latest block number
-      const latestBlockNumber =
-        await this.starknetService.getLatestBlockNumber();
+      const latestBlockNumber = await this.starknetService.getLatestBlockNumber();
 
-      // Process each contract
-      for (const contract of activeContracts) {
-        await this.processContractEvents(contract, latestBlockNumber);
-      }
+      await Promise.all(
+        activeContracts.map((contract) =>
+          this.processContractEvents(contract, latestBlockNumber),
+        ),
+      );
     } catch (error) {
       this.logger.error(`Failed to poll for events: ${error.message}`);
       throw error;
     }
   }
 
-  private async processContractEvents(
-    contract: ContractEntity,
-    latestBlockNumber: number,
-  ) {
+  private async processContractEvents(contract: ContractEntity, latestBlockNumber: number) {
     try {
-      // Start from last synced block + 1 or default to latest - 100 blocks if never synced
-      const fromBlock = contract.lastSyncedBlock
+      let fromBlock = contract.lastSyncedBlock
         ? contract.lastSyncedBlock + 1
         : Math.max(0, latestBlockNumber - 100);
 
-      // Don't process if already up to date
-      if (fromBlock > latestBlockNumber) {
-        return;
-      }
+      if (fromBlock > latestBlockNumber) return;
 
-      // Limit blocks per fetch to avoid large requests
-      const toBlock = Math.min(fromBlock + 50, latestBlockNumber);
+      const batchSize = 50;
+      const batchSaves: Promise<void>[] = [];
 
-      this.logger.debug(
-        `Processing events for contract ${contract.address} from block ${fromBlock} to ${toBlock}`,
-      );
+      while (fromBlock <= latestBlockNumber) {
+        const toBlock = Math.min(fromBlock + batchSize - 1, latestBlockNumber);
+        this.logger.debug(
+          `Processing contract ${contract.address} from block ${fromBlock} to ${toBlock}`,
+        );
 
-      // Get events for this contract in the block range
-      const events = await this.starknetService.getEvents({
-        contractAddresses: [contract.address],
-        fromBlock,
-        toBlock,
-      });
+        const events = await this.starknetService.getEvents({
+          contractAddresses: [contract.address],
+          fromBlock,
+          toBlock,
+        });
 
-      // Filter events based on monitoredEvents if configured
-      const filteredEvents =
-        contract.monitoredEvents && contract.monitoredEvents.length > 0
+        const filtered = contract.monitoredEvents?.length
           ? events.filter((event) => {
-              // Try to parse event name from keys
-              const eventName = this.parseEventName(event);
-              return eventName && contract.monitoredEvents.includes(eventName);
+              const name = this.parseEventName(event);
+              return name && contract.monitoredEvents.includes(name);
             })
           : events;
 
-      if (filteredEvents.length > 0) {
-        await this.saveEvents(contract, filteredEvents);
+        if (filtered.length > 0) {
+          batchSaves.push(this.saveEvents(contract, filtered));
+        }
+
+        fromBlock = toBlock + 1;
       }
 
-      // Update last synced block for this contract
+      await Promise.all(batchSaves);
+
       await this.contractRepository.update(contract.id, {
-        lastSyncedBlock: toBlock,
+        lastSyncedBlock: latestBlockNumber,
       });
     } catch (error) {
       this.logger.error(
@@ -149,10 +140,7 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
 
   private parseEventName(event: StarknetEmittedEvent): string | null {
     try {
-      // In StarkNet, the first key often contains the event name
-      // This is a simplified approach - in real-world, you'd use the ABI to decode
       if (event.keys && event.keys.length > 0) {
-        // Basic parsing logic - would need more sophisticated approach with real ABIs
         return event.name || 'UnknownEvent';
       }
       return null;
@@ -162,43 +150,32 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private async saveEvents(
-    contract: ContractEntity,
-    events: StarknetEmittedEvent[],
-  ) {
-    for (const event of events) {
-      try {
-        const eventName = this.parseEventName(event) || 'UnknownEvent';
+  private async saveEvents(contract: ContractEntity, events: StarknetEmittedEvent[]) {
+    const entities = events.map((event) => {
+      const eventName = this.parseEventName(event) || 'UnknownEvent';
+      return this.eventRepository.create({
+        name: eventName,
+        contractId: contract.id,
+        data: {
+          keys: event.keys,
+          data: event.data,
+        },
+        blockNumber: event.block_number,
+        blockHash: event.block_hash,
+        transactionHash: event.transaction_hash,
+        isProcessed: false,
+      });
+    });
 
-        const eventEntity = this.eventRepository.create({
-          name: eventName,
-          contractId: contract.id,
-          data: {
-            keys: event.keys,
-            data: event.data,
-          },
-          blockNumber: event.block_number,
-          blockHash: event.block_hash,
-          transactionHash: event.transaction_hash,
-          isProcessed: false,
-        });
+    await this.eventRepository.save(entities);
 
-        await this.eventRepository.save(eventEntity);
-
-        // Emit event for further processing
-        this.eventEmitter.emit('contract.event', {
-          eventId: eventEntity.id,
-          contractAddress: contract.address,
-          eventName,
-          blockNumber: event.block_number,
-        });
-
-        this.logger.debug(
-          `Saved event ${eventName} for contract ${contract.address} at block ${event.block_number}`,
-        );
-      } catch (error) {
-        this.logger.error(`Failed to save event: ${error.message}`);
-      }
+    for (const e of entities) {
+      this.eventEmitter.emit('contract.event', {
+        eventId: e.id,
+        contractAddress: contract.address,
+        eventName: e.name,
+        blockNumber: e.blockNumber,
+      });
     }
   }
 
@@ -212,8 +189,7 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
         throw new Error(`Contract with ID ${contractId} not found`);
       }
 
-      const latestBlockNumber =
-        await this.starknetService.getLatestBlockNumber();
+      const latestBlockNumber = await this.starknetService.getLatestBlockNumber();
       await this.processContractEvents(contract, latestBlockNumber);
 
       return { success: true, message: 'Manual sync completed successfully' };
