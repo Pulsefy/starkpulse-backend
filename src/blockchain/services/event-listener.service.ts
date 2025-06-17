@@ -12,6 +12,11 @@ import { ContractEntity } from '../entities/contract.entity';
 import { EventEntity } from '../entities/event.entity';
 import { StarknetEmittedEvent } from '../interfaces/starknet-event.interface';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { EventProcessorService } from './event-processor.service';
+
+
+const BATCH_SIZE = 100;
+
 
 @Injectable()
 export class EventListenerService implements OnModuleInit, OnModuleDestroy {
@@ -27,7 +32,10 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
     @InjectRepository(EventEntity)
     private eventRepository: Repository<EventEntity>,
     private eventEmitter: EventEmitter2,
+    private readonly eventProcessor: EventProcessorService,
+
   ) {}
+  
 
   async onModuleInit() {
     const { pollingIntervalMs } = this.configService.starknetConfig;
@@ -222,4 +230,15 @@ export class EventListenerService implements OnModuleInit, OnModuleDestroy {
       throw error;
     }
   }
+
+    async pollEvents(fromBlock: number, toBlock: number) {
+    const allEvents = await this.starknetService.getEvents({ fromBlock, toBlock });
+    this.logger.log(`Fetched ${allEvents.length} events.`);
+
+    for (let i = 0; i < allEvents.length; i += BATCH_SIZE) {
+      const batch = allEvents.slice(i, i + BATCH_SIZE);
+      await this.eventProcessor.processBatch(batch);
+    }
+  }
+
 }

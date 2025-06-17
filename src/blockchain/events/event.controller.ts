@@ -15,6 +15,8 @@ import { ContractEntity } from '../entities/contract.entity';
 import { EventEntity } from '../entities/event.entity';
 import { EventListenerService } from '../services/event-listener.service';
 import { EventProcessorService } from '../services/event-processor.service';
+import { MetricsService } from '../metrics/metrics.service';
+
 import {
   CreateContractDto,
   UpdateContractDto,
@@ -36,6 +38,7 @@ export class EventController {
     private eventRepository: Repository<EventEntity>,
     private eventListenerService: EventListenerService,
     private eventProcessorService: EventProcessorService,
+    private metrics: MetricsService,
   ) {}
 
   /**
@@ -346,5 +349,10 @@ export class EventController {
       this.logger.error(`Failed to process pending events: ${error.message}`);
       throw error;
     }
+  }
+
+  @Get('metrics')
+  getMetrics() {
+    return this.metrics.getCurrentStats();
   }
 }

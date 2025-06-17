@@ -14,6 +14,8 @@ export class EventEntity {
   id: string;
 
   @Column()
+
+  @Column()
   name: string;
 
   @Column({ nullable: true })

@@ -6,6 +6,8 @@ import { ContractEntity } from '../entities/contract.entity';
 import { OnEvent } from '@nestjs/event-emitter';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Cron, CronExpression } from '@nestjs/schedule';
+import { MetricsService } from '../metrics/metrics.service';
+
 
 @Injectable()
 export class EventProcessorService {
@@ -18,6 +20,8 @@ export class EventProcessorService {
     @InjectRepository(ContractEntity)
     private contractRepository: Repository<ContractEntity>,
     private eventEmitter: EventEmitter2,
+    private readonly metrics: MetricsService,
+
   ) {}
 
   @OnEvent('contract.event')
@@ -554,6 +558,36 @@ export class EventProcessorService {
     } catch (error) {
       this.logger.error(`Error getting processing metrics: ${error.message}`);
       throw error;
+    }
+  }
+
+   private isRelevantEvent(event: any): boolean {
+    const allowedTypes = ['Transfer', 'Swap'];
+    return allowedTypes.includes(event.name);
+  }
+
+  async processBatch(events: any[]) {
+    const filtered = events.filter(this.isRelevantEvent);
+
+    const inserts = filtered.map(event => ({
+      tx_hash: event.txHash,
+      type: event.name,
+      block_number: event.blockNumber,
+      data: JSON.stringify(event.data),
+      created_at: new Date(),
+    }));
+
+    if (inserts.length > 0) {
+      await this.eventRepo
+        .createQueryBuilder()
+        .insert()
+        .into(EventEntity)
+        .values(inserts)
+        .orIgnore()
+        .execute();
+
+      this.logger.log(`Inserted ${inserts.length} events.`);
+      this.metrics.incrementProcessed(inserts.length);
     }
   }
 }
