@@ -16,12 +16,10 @@ import helmet from 'helmet';
 import { RateLimitLoggingInterceptor } from './common/interceptors/rate-limit-logging.interceptor';
 import { AppConfig } from './config';
 
-
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     bufferLogs: true,
   });
-
 
   const loggingService = app.get(LoggingService);
   app.useLogger(loggingService);
@@ -34,9 +32,9 @@ async function bootstrap() {
     marketGateway.broadcastMarketUpdate(data);
   });
 
-  const configService = app.get(ConfigService);  app.setGlobalPrefix('api');
+  const configService = app.get(ConfigService);
+  app.setGlobalPrefix('api');
   app.enableCors();
-
 
   app.use(cookieParser());
 
@@ -53,7 +51,7 @@ async function bootstrap() {
 
   app.use(helmet());
 
-  app.useGlobalInterceptors(new LoggingInterceptor(loggingService));
+  app.useGlobalInterceptors(new LoggingInterceptor());
   (app as any).set?.('trust proxy', 1);
 
   app.useGlobalPipes(
@@ -70,9 +68,12 @@ async function bootstrap() {
   app.useGlobalInterceptors(app.get(RateLimitLoggingInterceptor));
 
   app.enableCors({
-    origin: typeof configService.get('corsOrigins' as keyof AppConfig) === 'string'
-      ? (configService.get('corsOrigins' as keyof AppConfig) as string).split(',')
-      : ['http://localhost:3000'],
+    origin:
+      typeof configService.get('corsOrigins' as keyof AppConfig) === 'string'
+        ? (configService.get('corsOrigins' as keyof AppConfig) as string).split(
+            ',',
+          )
+        : ['http://localhost:3000'],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
@@ -95,9 +96,15 @@ async function bootstrap() {
   SwaggerModule.setup('api/docs', app, document);
 
   loggingService.log(`🚀 Application is running on: http://localhost:${port}`);
-  loggingService.log(`📚 Swagger documentation: http://localhost:${port}/api/docs`);
-  const rateLimitConfig = configService.get('rateLimit' as keyof AppConfig) as any;
-  loggingService.log(`🛡️ Rate limiting is enabled with ${rateLimitConfig?.store?.type} store`);
+  loggingService.log(
+    `📚 Swagger documentation: http://localhost:${port}/api/docs`,
+  );
+  const rateLimitConfig = configService.get(
+    'rateLimit' as keyof AppConfig,
+  ) as any;
+  loggingService.log(
+    `🛡️ Rate limiting is enabled with ${rateLimitConfig?.store?.type} store`,
+  );
 }
 
 bootstrap();

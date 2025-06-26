@@ -1,11 +1,11 @@
 export interface RateLimitConfig {
-  windowMs: number; 
-  max: number; 
+  windowMs: number;
+  max: number;
   keyGenerator?: (req: any) => string;
   skipIf?: (req: any) => boolean;
   skipSuccessfulRequests?: boolean;
   skipFailedRequests?: boolean;
-  message?: string | object;
+  message?: string;
   statusCode?: number;
   headers?: boolean;
   draft_polli_ratelimit_headers?: boolean;
@@ -28,17 +28,25 @@ export interface RateLimitHeaders {
 }
 
 export interface AdaptiveRateLimitConfig {
+  enabled: boolean;
   baseLimit: number;
   maxLimit: number;
   minLimit: number;
-  increaseThreshold: number; 
-  decreaseThreshold: number; 
-  adjustmentFactor: number; 
+  increaseThreshold: number;
+  decreaseThreshold: number;
+  adjustmentFactor: number;
+  cpuThreshold: number;
+  memoryThreshold: number;
+  responseTimeThreshold: number;
+  minMultiplier: number;
+  maxMultiplier: number;
 }
 
 export interface TrustedUserConfig {
   userIds: number[];
   roles: string[];
   ipAddresses: string[];
-  bypassFactor: number; 
+  bypassFactor: number;
+  trustedRoles: string[];
+  trustedIps: string[];
 }

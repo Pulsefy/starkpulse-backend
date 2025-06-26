@@ -38,4 +38,5 @@ export interface AppConfig {
   jwt: JwtConfig;
   crypto: CryptoConfig;
   starknet: StarknetConfig;
+  LOG_LEVEL?: string;
 }

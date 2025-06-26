@@ -5,6 +5,8 @@ import {
   RequestMethod,
 } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+// Change the import
+import { CacheWarmupModule } from './common/cache/cache.module';
 import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './health/health.module';
 import { AuthModule } from './auth/auth.module';
@@ -30,7 +32,7 @@ import { SecurityModule } from './common/security/security.module';
 import { CacheModule } from '@nestjs/cache-manager';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
-import configuration from './config/configuration';
+// import configuration from './config/configuration';
 import { RateLimitModule } from './common/module/rate-limit.module';
 import { RateLimitMiddleware } from './common/middleware/rate-limit.middleware';
 import { RateLimitGuard } from './common/guards/rate-limit.guard';
@@ -44,16 +46,20 @@ import { MonitoringModule } from './monitoring/monitoring.module';
       cache: true,
       envFilePath: '.env',
     }),
+    CacheWarmupModule, // Fixed: Changed from CustomCacheModule to CacheWarmupModule
     ScheduleModule.forRoot(),
     EventEmitterModule.forRoot(),
     CacheModule.register({
-    isGlobal: true,
+      isGlobal: true,
     }),
-    ThrottlerModule.forRoot({
-      ttl: 60,
-      limit: 1000,
-    }),
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60000,
+        limit: 1000,
+      },
+    ]),
     RateLimitModule.forRoot(),
+    CacheWarmupModule, // Use the renamed module
   ],
   providers: [
     {
@@ -86,6 +92,7 @@ import { MonitoringModule } from './monitoring/monitoring.module';
     SecurityModule,
     MonitoringModule,
     CacheWarmupService,
+    // Remove CacheWarmupService from here since it's now provided by CacheWarmupModule
   ],
 })
 export class AppModule implements NestModule {
@@ -101,10 +108,9 @@ export class AppModule implements NestModule {
         { path: 'api/auth/wallet/nonce', method: RequestMethod.ALL },
         { path: 'api/auth/wallet/verify', method: RequestMethod.ALL },
         { path: 'api/blockchain/events/webhook', method: RequestMethod.ALL },
-        { path: 'security/csrf-token', method: RequestMethod.GET }
+        { path: 'security/csrf-token', method: RequestMethod.GET },
       )
       .forRoutes('*');
-    consumer.apply(RateLimitMiddleware).forRoutes('*'); 
-
+    consumer.apply(RateLimitMiddleware).forRoutes('*');
   }
 }

@@ -30,7 +30,7 @@ export class User {
   isVerified: boolean;
 
   @Column({ nullable: true })
-  refreshToken: string;
+  refreshToken?: string | null;
 
   @OneToMany(() => PortfolioAsset, (asset) => asset.user)
   portfolioAssets: PortfolioAsset[];

@@ -13,6 +13,7 @@ import { TransactionType } from '../enums/transactionType.enum';
 import { UsersService } from '../../users/users.service';
 import { Notification } from '../../notifications/entities/notification.entity';
 import { NotificationType } from '../../notifications/enums/notificationType.enum';
+import { NotificationStatus } from '../../notifications/enums/notificationStatus.enum';
 
 @Injectable()
 export class TransactionMonitorService implements OnModuleInit {
@@ -556,7 +557,7 @@ export class TransactionMonitorService implements OnModuleInit {
       content: message,
       metadata: { ...metadata, transactionId, eventType },
       channel: 'in_app',
-      status: 'PENDING', // Pending until sent
+      status: NotificationStatus.PENDING, // Use enum instead of string
     });
   }
 }

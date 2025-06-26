@@ -62,6 +62,7 @@ export class TransactionController {
     type: Transaction,
     examples: {
       example1: {
+        summary: 'Successful transaction creation',
         value: {
           id: 'tx-uuid',
           userId: 'user-uuid',
@@ -106,6 +107,7 @@ export class TransactionController {
     type: [Transaction],
     examples: {
       example1: {
+        summary: 'List of user transactions',
         value: [
           {
             id: 'tx-uuid',
@@ -113,8 +115,8 @@ export class TransactionController {
             type: 'transfer',
             amount: 100,
             asset: 'ETH',
-            to: '0xabc...',
-            createdAt: '2023-08-15T10:23:45.123Z',
+            to: '0x...',
+            createdAt: '2023-01-01T00:00:00Z',
           },
         ],
       },

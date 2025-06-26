@@ -1,7 +1,12 @@
-import { Repository, SelectQueryBuilder, FindManyOptions } from 'typeorm';
+import {
+  Repository,
+  FindManyOptions,
+  ObjectLiteral,
+  SelectQueryBuilder,
+} from 'typeorm';
 import { QueryCacheService } from '../services/query-cache.service';
 
-export abstract class BaseRepository<T> {
+export abstract class BaseRepository<T extends ObjectLiteral> {
   constructor(
     protected readonly repository: Repository<T>,
     protected readonly cacheService: QueryCacheService,
@@ -48,7 +53,10 @@ export abstract class BaseRepository<T> {
 
   // Optimized query builder with automatic caching
   createOptimizedQueryBuilder(alias: string): SelectQueryBuilder<T> {
-    return this.repository.createQueryBuilder(alias).cache(true); // Enable query-level caching
+    return this.repository
+      .createQueryBuilder(alias)
+      .cache(true)
+      .setQueryRunner(this.repository.manager.connection.createQueryRunner());
   }
 
   // Bulk operations

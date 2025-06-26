@@ -47,26 +47,37 @@ export class MarketDataService {
     });
   }
 
-  analyzeMarketData(request: MarketAnalysisRequestDto) {
+  async analyzeMarketData(request: any): Promise<any> {
     const sorted = [...request.data].sort(
-      (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+      (a, b) =>
+        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
     );
-    const prices = sorted.map(item => item.priceUsd);
+    const prices = sorted.map((item) => item.priceUsd);
 
-    const sma = calculateSMA(prices, 14);
-    const ema = calculateEMA(prices, 14);
-    const rsi = calculateRSI(prices, 14);
-    const volatility = calculateVolatility(prices);
-
-    let correlation: number | null;
+    const technicalIndicators = this.calculateTechnicalIndicators(prices);
+    let correlation: number | null = null;
 
     if (request.compareWith && request.compareWith.length === prices.length) {
       const compareSorted = [...request.compareWith].sort(
-        (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+        (a, b) =>
+          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
       );
-      const comparePrices = compareSorted.map(item => item.priceUsd);
-      correlation = pearsonCorrelation(prices, comparePrices);
+      const comparePrices = compareSorted.map((item) => item.priceUsd);
+      correlation = this.pearsonCorrelation(prices, comparePrices);
     }
+
+    return {
+      prices: sorted,
+      ...technicalIndicators,
+      correlation,
+    };
+  }
+
+  private calculateTechnicalIndicators(prices: number[]): any {
+    const sma = this.calculateSMA(prices, 20);
+    const ema = this.calculateEMA(prices, 20);
+    const rsi = this.calculateRSI(prices, 14);
+    const volatility = this.calculateVolatility(prices);
 
     const trend = this.identifyTrend(sma, ema);
 
@@ -75,18 +86,108 @@ export class MarketDataService {
       ema,
       rsi,
       volatility,
-      correlation,
       trend,
     };
   }
 
-  private identifyTrend(sma: number[], ema: number[]): 'uptrend' | 'downtrend' | 'sideways' {
-    const recentSMA = sma.at(-1);
-    const recentEMA = ema.at(-1);
+  private calculateSMA(prices: number[], period: number): number[] {
+    const sma: number[] = [];
+    for (let i = period - 1; i < prices.length; i++) {
+      const sum = prices
+        .slice(i - period + 1, i + 1)
+        .reduce((a, b) => a + b, 0);
+      sma.push(sum / period);
+    }
+    return sma;
+  }
 
-    if (!recentSMA || !recentEMA) return 'sideways';
-    if (recentEMA > recentSMA) return 'uptrend';
-    if (recentEMA < recentSMA) return 'downtrend';
-    return 'sideways';
+  private calculateEMA(prices: number[], period: number): number[] {
+    const ema: number[] = [];
+    const multiplier = 2 / (period + 1);
+
+    ema[0] = prices[0];
+    for (let i = 1; i < prices.length; i++) {
+      ema[i] = prices[i] * multiplier + ema[i - 1] * (1 - multiplier);
+    }
+    return ema;
+  }
+
+  private calculateRSI(prices: number[], period: number): number[] {
+    const rsi: number[] = [];
+    const gains: number[] = [];
+    const losses: number[] = [];
+
+    for (let i = 1; i < prices.length; i++) {
+      const change = prices[i] - prices[i - 1];
+      gains.push(change > 0 ? change : 0);
+      losses.push(change < 0 ? Math.abs(change) : 0);
+    }
+
+    for (let i = period - 1; i < gains.length; i++) {
+      const avgGain =
+        gains.slice(i - period + 1, i + 1).reduce((a, b) => a + b, 0) / period;
+      const avgLoss =
+        losses.slice(i - period + 1, i + 1).reduce((a, b) => a + b, 0) / period;
+      const rs = avgGain / avgLoss;
+      rsi.push(100 - 100 / (1 + rs));
+    }
+
+    return rsi;
+  }
+
+  private calculateVolatility(prices: number[]): number {
+    const returns: number[] = [];
+    for (let i = 1; i < prices.length; i++) {
+      returns.push((prices[i] - prices[i - 1]) / prices[i - 1]);
+    }
+
+    const mean = returns.reduce((a, b) => a + b, 0) / returns.length;
+    const variance =
+      returns.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / returns.length;
+    return Math.sqrt(variance);
+  }
+
+  private identifyTrend(sma: number[], ema: number[]): string {
+    if (sma.length < 2 || ema.length < 2) {
+      return 'insufficient_data';
+    }
+
+    const latestSma = sma[sma.length - 1];
+    const previousSma = sma[sma.length - 2];
+    const latestEma = ema[ema.length - 1];
+    const previousEma = ema[ema.length - 2];
+
+    // Determine trend based on SMA and EMA movement
+    const smaRising = latestSma > previousSma;
+    const emaRising = latestEma > previousEma;
+    const emaAboveSma = latestEma > latestSma;
+
+    if (smaRising && emaRising && emaAboveSma) {
+      return 'strong_uptrend';
+    } else if (smaRising && emaRising) {
+      return 'uptrend';
+    } else if (!smaRising && !emaRising && !emaAboveSma) {
+      return 'strong_downtrend';
+    } else if (!smaRising && !emaRising) {
+      return 'downtrend';
+    } else {
+      return 'sideways';
+    }
+  }
+
+  private pearsonCorrelation(x: number[], y: number[]): number {
+    const n = x.length;
+    const sumX = x.reduce((a, b) => a + b, 0);
+    const sumY = y.reduce((a, b) => a + b, 0);
+    const sumXY = x.reduce((sum, xi, i) => sum + xi * y[i], 0);
+    const sumX2 = x.reduce((sum, xi) => sum + xi * xi, 0);
+    const sumY2 = y.reduce((sum, yi) => sum + yi * yi, 0);
+
+    const numerator = n * sumXY - sumX * sumY;
+    const denominator = Math.sqrt(
+      (n * sumX2 - sumX * sumX) * (n * sumY2 - sumY * sumY),
+    );
+
+    return denominator === 0 ? 0 : numerator / denominator;
   }
 }

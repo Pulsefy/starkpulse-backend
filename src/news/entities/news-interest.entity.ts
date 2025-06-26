@@ -1,5 +1,3 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
-import { User } from '../../users/entities/user.entity';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -7,7 +5,7 @@ import {
   ManyToOne,
   JoinColumn,
 } from 'typeorm';
-
+import { User } from '../../users/entities/user.entity';
 
 @Entity()
 export class NewsInterest {

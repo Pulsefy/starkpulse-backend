@@ -5,8 +5,6 @@ import {
   CallHandler,
   Logger,
 } from '@nestjs/common';
-import { Observable, throwError } from 'rxjs';
-import { tap, catchError } from 'rxjs/operators';
 import { MetricsService } from './metrics-service';
 import { AlertingService } from './alerting-service';
 
@@ -19,97 +17,77 @@ export class MonitoringInterceptor implements NestInterceptor {
     private readonly alertingService: AlertingService,
   ) {}
 
-  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
-    const startTime = Date.now();
+  intercept(context: ExecutionContext, next: CallHandler): any {
+    const start = Date.now();
     const request = context.switchToHttp().getRequest();
-    const response = context.switchToHttp().getResponse();
-    
     const method = request.method;
-    const url = request.url;
-    const handler = context.getHandler().name;
-    const controller = context.getClass().name;
+    const route = request.route?.path || request.url;
 
-    this.logger.debug(`Starting ${controller}.${handler} - ${method} ${url}`);
+    try {
+      const result = next.handle();
 
-    return next.handle().pipe(
-      tap(() => {
-        const duration = Date.now() - startTime;
-        const statusCode = response.statusCode;
+      // Record metrics after request completes
+      const duration = Date.now() - start;
+      this.metricsService.recordHttpRequestDuration(
+        method,
+        route,
+        '200',
+        duration,
+      );
 
-        // Record successful operation metrics
-        this.metricsService.incrementBusinessOperation(
-          `${controller}.${handler}`,
-          true
-        );
-
-        this.logger.debug(
-          `Completed ${controller}.${handler} - ${method} ${url} - ${statusCode} - ${duration}ms`
-        );
-
-        // Check for slow operations
-        if (duration > 5000) {
-          this.logger.warn(`Slow operation detected: ${controller}.${handler} took ${duration}ms`);
-        }
-      }),
-      catchError((error) => {
-        const duration = Date.now() - startTime;
-        
-        // Record failed operation metrics
-        this.metricsService.incrementBusinessOperation(
-          `${controller}.${handler}`,
-          false
-        );
-
-        // Log error details
-        this.logger.error(
-          `Error in ${controller}.${handler} - ${method} ${url} - ${duration}ms`,
-          {
-            error: error.message,
-            stack: error.stack,
-            duration,
-            controller,
-            handler,
-            method,
-            url,
-          }
-        );
-
-        // Send alert for critical errors
-        if (this.isCriticalError(error)) {
-          this.alertingService.sendAlert('HIGH_ERROR_RATE', {
-            controller,
-            handler,
-            error: error.message,
-            method,
-            url,
-            duration,
-          }).catch(alertError => {
-            this.logger.error('Failed to send error alert:', alertError);
-          });
-        }
-
-        return throwError(() => error);
-      })
-    );
+      return result;
+    } catch (error) {
+      const duration = Date.now() - start;
+      this.logger.error('Request failed:', error);
+      this.metricsService.recordHttpRequestDuration(
+        method,
+        route,
+        '500',
+        duration,
+      );
+      this.alertingService.sendAlert('request_error', { error: error.message });
+      throw error;
+    }
   }
+}
 
-  private isCriticalError(error: any): boolean {
-    // Define what constitutes a critical error
-    const criticalErrorTypes = [
-      'DatabaseError',
-      'ConnectionError',
-      'TimeoutError',
-      'UnauthorizedError',
-    ];
+// If you have a second interceptor class in the same file, apply similar changes
+@Injectable()
+export class PerformanceMonitoringInterceptor implements NestInterceptor {
+  private readonly logger = new Logger(PerformanceMonitoringInterceptor.name);
 
-    const criticalStatusCodes = [500, 502, 503, 504];
-    
-    return (
-      criticalErrorTypes.some(type => error.constructor.name.includes(type)) ||
-      criticalStatusCodes.includes(error.status) ||
-      error.message?.toLowerCase().includes('database') ||
-      error.message?.toLowerCase().includes('connection')
-    );
+  constructor(
+    private readonly metricsService: MetricsService,
+    private readonly alertingService: AlertingService,
+  ) {}
+
+  intercept(context: ExecutionContext, next: CallHandler): any {
+    const start = Date.now();
+    const request = context.switchToHttp().getRequest();
+
+    try {
+      const result = next.handle();
+
+      // Monitor performance
+      const duration = Date.now() - start;
+      if (duration > 5000) {
+        // Alert if request takes more than 5 seconds
+        this.alertingService.sendAlert(
+          'slow_request',
+          {
+            url: request.url,
+            method: request.method,
+            duration,
+          },
+          'medium',
+        );
+      }
+
+      return result;
+    } catch (error) {
+      this.logger.error('Performance monitoring error:', error);
+      throw error;
+    }
   }
 }
 
@@ -117,33 +95,41 @@ export class MonitoringInterceptor implements NestInterceptor {
 export class PerformanceInterceptor implements NestInterceptor {
   private readonly logger = new Logger(PerformanceInterceptor.name);
   private readonly performanceThresholds = {
-    fast: 100,      // < 100ms
-    medium: 500,    // 100ms - 500ms
-    slow: 1000,     // 500ms - 1s
+    fast: 100, // < 100ms
+    medium: 500, // 100ms - 500ms
+    slow: 1000, // 500ms - 1s
     verySlow: 5000, // > 1s
   };
 
-  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+  intercept(context: ExecutionContext, next: CallHandler): any {
     const startTime = process.hrtime.bigint();
     const controller = context.getClass().name;
     const handler = context.getHandler().name;
 
-    return next.handle().pipe(
-      tap(() => {
-        const endTime = process.hrtime.bigint();
-        const duration = Number(endTime - startTime) / 1000000; // Convert to milliseconds
+    const result = next.handle();
 
-        // Categorize performance
-        const performanceCategory = this.categorizePerformance(duration);
-        
-        this.logger.debug(`${controller}.${handler} performance: ${duration.toFixed(2)}ms (${performanceCategory})`);
+    // Simple promise-based handling instead of rxjs
+    if (result && typeof result.toPromise === 'function') {
+      return result.toPromise().then(
+        (data: any) => {
+          const endTime = process.hrtime.bigint();
+          const duration = Number(endTime - startTime) / 1000000;
 
-        // Log slow operations with more detail
-        if (performanceCategory === 'slow' || performanceCategory === 'very_slow') {
-          this.logger.warn(`${performanceCategory.toUpperCase()} operation: ${controller}.${handler} - ${duration.toFixed(2)}ms`);
-        }
-      })
-    );
+          const performanceCategory = this.categorizePerformance(duration);
+          this.logger.debug(
+            `${controller}.${handler} performance: ${duration.toFixed(2)}ms (${performanceCategory})`,
+          );
+
+          return data;
+        },
+        (error: any) => {
+          this.logger.error(`Error in ${controller}.${handler}:`, error);
+          throw error;
+        },
+      );
+    }
+
+    return result;
   }
 
   private categorizePerformance(duration: number): string {
@@ -160,36 +146,37 @@ export class BusinessMetricsInterceptor implements NestInterceptor {
 
   constructor(private readonly metricsService: MetricsService) {}
 
-  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
+  intercept(context: ExecutionContext, next: CallHandler): any {
     const controller = context.getClass().name;
     const handler = context.getHandler().name;
     const request = context.switchToHttp().getRequest();
 
-    // Extract business-relevant information
     const operationType = this.getOperationType(request.method);
     const resourceType = this.getResourceType(controller);
 
-    return next.handle().pipe(
-      tap((result) => {
-        // Record successful business operation
-        this.metricsService.incrementBusinessOperation(
-          `${operationType}_${resourceType}`,
-          true
-        );
+    const result = next.handle();
 
-        // Record specific business metrics based on the operation
-        this.recordSpecificBusinessMetrics(operationType, resourceType, result);
-      }),
-      catchError((error) => {
-        // Record failed business operation
-        this.metricsService.incrementBusinessOperation(
-          `${operationType}_${resourceType}`,
-          false
-        );
+    if (result && typeof result.toPromise === 'function') {
+      return result.toPromise().then(
+        (data: any) => {
+          this.metricsService.incrementBusinessOperation(
+            `${operationType}_${resourceType}`,
+            true,
+          );
+          this.recordSpecificBusinessMetrics(operationType, resourceType, data);
+          return data;
+        },
+        (error: any) => {
+          this.metricsService.incrementBusinessOperation(
+            `${operationType}_${resourceType}`,
+            false,
+          );
+          throw error;
+        },
+      );
+    }
 
-        throw error;
-      })
-    );
+    return result;
   }
 
   private getOperationType(method: string): string {
@@ -211,14 +198,17 @@ export class BusinessMetricsInterceptor implements NestInterceptor {
   private recordSpecificBusinessMetrics(
     operation: string,
     resource: string,
-    result: any
+    result: any,
   ): void {
     try {
       // Record specific metrics based on the operation and resource
       if (operation === 'create' && resource === 'user') {
-        this.metricsService.incrementBusinessOperation('user_registration', true);
+        this.metricsService.incrementBusinessOperation(
+          'user_registration',
+          true,
+        );
       }
-      
+
       if (operation === 'create' && resource === 'order') {
         this.metricsService.incrementBusinessOperation('order_placement', true);
       }

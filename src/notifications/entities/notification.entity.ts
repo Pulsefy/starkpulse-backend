@@ -8,15 +8,11 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { User } from '../../users/users.entity';
+import { NotificationStatus } from '../enums/notificationStatus.enum';
 import { NotificationType } from '../enums/notificationType.enum';
 
-export enum NotificationStatus {
-  PENDING = 'PENDING',
-  PROCESSING = 'PROCESSING',
-  SENT = 'SENT',
-  FAILED = 'FAILED',
-  RETRYING = 'RETRYING',
-}
+// Remove the duplicate enum definition:
+// export enum NotificationStatus { ... }
 
 export enum NotificationPriority {
   LOW = 'LOW',

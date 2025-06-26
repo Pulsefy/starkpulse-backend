@@ -3,69 +3,27 @@ import {
   NestInterceptor,
   ExecutionContext,
   CallHandler,
+  Logger,
 } from '@nestjs/common';
-import { Observable } from 'rxjs';
-import { tap } from 'rxjs/operators';
-import { LoggingService } from '../services/logging.service';
 
 @Injectable()
 export class LoggingInterceptor implements NestInterceptor {
-  constructor(private readonly loggingService: LoggingService) {
-    this.loggingService.setContext('LoggingInterceptor');
-  }
+  private readonly logger = new Logger(LoggingInterceptor.name);
 
-  intercept(context: ExecutionContext, next: CallHandler): Observable<any> {
-    const req = context.switchToHttp().getRequest();
-    const { method, url, body, headers, query, params } = req;
-    const userAgent = headers['user-agent'] || '';
-    const ip = req.ip;
-    const requestId = headers['x-request-id'] || Math.random().toString(36).substring(7);
+  intercept(context: ExecutionContext, next: CallHandler): any {
+    const request = context.switchToHttp().getRequest();
+    const method = request.method;
+    const url = request.url;
+    const now = Date.now();
 
-    const startTime = process.hrtime();
+    this.logger.log(`${method} ${url} - Start`);
 
-    return next.handle().pipe(
-      tap({
-        next: (data) => {
-          const response = context.switchToHttp().getResponse();
-          const [seconds, nanoseconds] = process.hrtime(startTime);
-          const duration = seconds * 1000 + nanoseconds / 1000000;
+    const result = next.handle();
 
-          this.loggingService.log('Request completed', {
-            requestId,
-            method,
-            url,
-            statusCode: response.statusCode,
-            duration: `${duration.toFixed(2)}ms`,
-            userAgent,
-            ip,
-            query,
-            params,
-            responseSize: JSON.stringify(data).length,
-            timestamp: new Date().toISOString(),
-          });
-        },
-        error: (error) => {
-          const [seconds, nanoseconds] = process.hrtime(startTime);
-          const duration = seconds * 1000 + nanoseconds / 1000000;
+    // Simple logging without rxjs
+    const duration = Date.now() - now;
+    this.logger.log(`${method} ${url} - Completed in ${duration}ms`);
 
-          this.loggingService.error('Request failed', error.stack, {
-            requestId,
-            method,
-            url,
-            statusCode: error.status || 500,
-            duration: `${duration.toFixed(2)}ms`,
-            userAgent,
-            ip,
-            query,
-            params,
-            error: {
-              name: error.name,
-              message: error.message,
-            },
-            timestamp: new Date().toISOString(),
-          });
-        },
-      }),
-    );
+    return result;
   }
 }

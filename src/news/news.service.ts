@@ -62,18 +62,22 @@ export class NewsService {
     return news;
   }
 
-    async aggregateNews(sources?: string[]): Promise<NewsArticle[]> {
+  async aggregateNews(sources?: string[]): Promise<NewsArticle[]> {
     const rawArticles = await this.fetchFromSources(sources);
     const processedArticles = await Promise.all(
       rawArticles.map(async (article) => {
-        const reliabilityScore = await this.reliabilityScorer.scoreSource(article.source ?? '');
+        const reliabilityScore = await this.reliabilityScorer.scoreSource(
+          article.source ?? '',
+        );
         const categories = await this.contentCategorizer.categorize({
           title: article.title ?? '',
           content: article.content ?? '',
           source: article.source,
         });
-        const sentiment = await this.sentimentAnalyzer.analyze(article.content ?? '');
-        
+        const sentiment = await this.sentimentAnalyzer.analyze(
+          article.content ?? '',
+        );
+
         return {
           ...article,
           id: article.id ?? this.generateId(),
@@ -82,26 +86,28 @@ export class NewsService {
           sentiment,
           processedAt: new Date(),
         };
-      })
+      }),
     );
 
     return processedArticles
-      .filter(article => article.reliabilityScore >= 0.6)
-      .map(article => ({
+      .filter((article) => article.reliabilityScore >= 0.6)
+      .map((article) => ({
         ...article,
-        id: article.id!, 
+        id: article.id!,
       })) as NewsArticle[];
   }
 
   async createPersonalizedFeed(
     userId: string,
-    preferences: PersonalizationPreferencesDto
+    preferences: PersonalizationPreferencesDto,
   ): Promise<PersonalizedFeed> {
     const allArticles = await this.aggregateNews();
-    const personalizedArticles = this.personalizationEngine.personalize(
+
+    // If PersonalizationEngine doesn't have personalize method, implement it
+    const personalizedArticles = this.personalizeArticles(
       allArticles,
-      preferences
-    ) as unknown as NewsArticle[]; 
+      preferences,
+    ) as unknown as NewsArticle[];
 
     return {
       userId,
@@ -111,7 +117,25 @@ export class NewsService {
     };
   }
 
-  async getTrendingTopics(timeframe: '1h' | '6h' | '24h' = '24h'): Promise<TrendingTopicsDto> {
+  private personalizeArticles(
+    articles: any[],
+    preferences: PersonalizationPreferencesDto,
+  ): any[] {
+    // Implement personalization logic here
+    return articles.filter(
+      (article) =>
+        preferences.categories?.includes(article.category) ||
+        preferences.keywords?.some(
+          (keyword) =>
+            article.title.toLowerCase().includes(keyword.toLowerCase()) ||
+            article.content.toLowerCase().includes(keyword.toLowerCase()),
+        ),
+    );
+  }
+
+  async getTrendingTopics(
+    timeframe: '1h' | '6h' | '24h' = '24h',
+  ): Promise<TrendingTopicsDto> {
     const articles = await this.getRecentArticles(timeframe);
     return await this.trendingAnalyzer.identifyTrends(articles, timeframe);
   }
@@ -123,19 +147,20 @@ export class NewsService {
     neutral: number;
     articles: NewsArticle[];
   }> {
-    const articles = symbol 
+    const articles = symbol
       ? await this.getArticlesBySymbol(symbol)
       : await this.getRecentMarketArticles();
 
-    const sentiments = articles.map(article => article.sentiment);
-    const overall = sentiments.reduce((sum, s) => sum + s.score, 0) / sentiments.length;
-    
+    const sentiments = articles.map((article) => article.sentiment);
+    const overall =
+      sentiments.reduce((sum, s) => sum + s.score, 0) / sentiments.length;
+
     const counts = sentiments.reduce(
       (acc, s) => {
         acc[s.label]++;
         return acc;
       },
-      { positive: 0, negative: 0, neutral: 0 }
+      { positive: 0, negative: 0, neutral: 0 },
     );
 
     const total = articles.length;
@@ -152,43 +177,50 @@ export class NewsService {
     let articles = await this.aggregateNews();
 
     if (filters.categories?.length) {
-      articles = articles.filter(article =>
-        (filters.categories ?? []).includes(article.category)
+      articles = articles.filter((article) =>
+        (filters.categories ?? []).includes(article.category),
       );
     }
 
     if (filters.minReliabilityScore) {
-      articles = articles.filter(article =>
-        article.reliabilityScore >= filters.minReliabilityScore!
+      articles = articles.filter(
+        (article) => article.reliabilityScore >= filters.minReliabilityScore!,
       );
     }
 
     if (filters.sentiment) {
-      articles = articles.filter(article =>
-        article.sentiment.label === filters.sentiment
+      articles = articles.filter(
+        (article) => article.sentiment.label === filters.sentiment,
       );
     }
 
     if (filters.dateRange) {
       const { start, end } = filters.dateRange;
-      articles = articles.filter(article =>
-        article.publishedAt >= start && article.publishedAt <= end
+      articles = articles.filter(
+        (article) => article.publishedAt >= start && article.publishedAt <= end,
       );
     }
 
     if (filters.sources?.length) {
-      articles = articles.filter(article =>
-        (filters.sources ?? []).includes(article.source)
+      articles = articles.filter((article) =>
+        (filters.sources ?? []).includes(article.source),
       );
     }
 
     return this.sortArticles(articles, filters.sortBy || 'relevance');
   }
 
-  async createArticle(createNewsArticleDto: CreateNewsArticleDto): Promise<NewsArticle> {
-    const reliabilityScore = await this.reliabilityScorer.scoreSource(createNewsArticleDto.source);
-    const categories = await this.contentCategorizer.categorize(createNewsArticleDto);
-    const sentiment = await this.sentimentAnalyzer.analyze(createNewsArticleDto.content);
+  async createArticle(
+    createNewsArticleDto: CreateNewsArticleDto,
+  ): Promise<NewsArticle> {
+    const reliabilityScore = await this.reliabilityScorer.scoreSource(
+      createNewsArticleDto.source,
+    );
+    const categories =
+      await this.contentCategorizer.categorize(createNewsArticleDto);
+    const sentiment = await this.sentimentAnalyzer.analyze(
+      createNewsArticleDto.content,
+    );
 
     const article: NewsArticle = {
       ...createNewsArticleDto,
@@ -202,27 +234,36 @@ export class NewsService {
       language: '',
       isBreaking: false,
       isTrending: false,
-      author: createNewsArticleDto.author ?? '', 
+      author: createNewsArticleDto.author ?? '',
     };
 
     return article;
   }
 
-  async updateArticle(id: string, updateNewsArticleDto: UpdateNewsArticleDto): Promise<NewsArticle> {
+  async updateArticle(
+    id: string,
+    updateNewsArticleDto: UpdateNewsArticleDto,
+  ): Promise<NewsArticle> {
     const existingArticle = await this.findById(id);
     const updatedData = { ...existingArticle, ...updateNewsArticleDto };
-    
+
     if (updateNewsArticleDto.content) {
-      updatedData.sentiment = await this.sentimentAnalyzer.analyze(updateNewsArticleDto.content);
+      updatedData.sentiment = await this.sentimentAnalyzer.analyze(
+        updateNewsArticleDto.content,
+      );
       const categories = await this.contentCategorizer.categorize(updatedData);
-      updatedData.category = Array.isArray(categories) ? categories[0] : categories;
+      updatedData.category = Array.isArray(categories)
+        ? categories[0]
+        : categories;
     }
 
     updatedData.updatedAt = new Date();
     return updatedData;
   }
 
-  private async fetchFromSources(sources?: string[]): Promise<Partial<NewsArticle>[]> {
+  private async fetchFromSources(
+    sources?: string[],
+  ): Promise<Partial<NewsArticle>[]> {
     return [];
   }
 
@@ -230,31 +271,33 @@ export class NewsService {
     const now = new Date();
     const hours = timeframe === '1h' ? 1 : timeframe === '6h' ? 6 : 24;
     const cutoff = new Date(now.getTime() - hours * 60 * 60 * 1000);
-    
+
     const articles = await this.aggregateNews();
-    return articles.filter(article => article.publishedAt >= cutoff);
+    return articles.filter((article) => article.publishedAt >= cutoff);
   }
 
   private async getArticlesBySymbol(symbol: string): Promise<NewsArticle[]> {
     const articles = await this.aggregateNews();
-    return articles.filter(article =>
-      article.content.toLowerCase().includes(symbol.toLowerCase()) ||
-      article.title.toLowerCase().includes(symbol.toLowerCase())
+    return articles.filter(
+      (article) =>
+        article.content.toLowerCase().includes(symbol.toLowerCase()) ||
+        article.title.toLowerCase().includes(symbol.toLowerCase()),
     );
   }
 
   private async getRecentMarketArticles(): Promise<NewsArticle[]> {
     const articles = await this.aggregateNews();
-    return articles.filter(article =>
-      article.category.includes('finance') ||
-      article.category.includes('markets') ||
-      article.category.includes('economy')
+    return articles.filter(
+      (article) =>
+        article.category.includes('finance') ||
+        article.category.includes('markets') ||
+        article.category.includes('economy'),
     );
   }
 
   private async findById(id: string): Promise<NewsArticle> {
     const articles = await this.aggregateNews();
-    const article = articles.find(a => a.id === id);
+    const article = articles.find((a) => a.id === id);
     if (!article) {
       throw new Error(`Article with id ${id} not found`);
     }
@@ -264,15 +307,22 @@ export class NewsService {
   private sortArticles(articles: NewsArticle[], sortBy: string): NewsArticle[] {
     switch (sortBy) {
       case 'date':
-        return articles.sort((a, b) => b.publishedAt.getTime() - a.publishedAt.getTime());
+        return articles.sort(
+          (a, b) => b.publishedAt.getTime() - a.publishedAt.getTime(),
+        );
       case 'reliability':
         return articles.sort((a, b) => b.reliabilityScore - a.reliabilityScore);
       case 'sentiment':
         return articles.sort((a, b) => b.sentiment.score - a.sentiment.score);
       default:
-        return articles.sort((a, b) => 
-          (b.reliabilityScore * 0.4 + b.sentiment.score * 0.3 + (b.engagementScore || 0) * 0.3) -
-          (a.reliabilityScore * 0.4 + a.sentiment.score * 0.3 + (a.engagementScore || 0) * 0.3)
+        return articles.sort(
+          (a, b) =>
+            b.reliabilityScore * 0.4 +
+            b.sentiment.score * 0.3 +
+            (b.engagementScore || 0) * 0.3 -
+            (a.reliabilityScore * 0.4 +
+              a.sentiment.score * 0.3 +
+              (a.engagementScore || 0) * 0.3),
         );
     }
   }
@@ -280,6 +330,4 @@ export class NewsService {
   private generateId(): string {
     return Date.now().toString(36) + Math.random().toString(36).substr(2);
   }
-
 }
-

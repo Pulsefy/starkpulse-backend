@@ -15,14 +15,23 @@ export class MemoryRateLimitStore implements RateLimitStore {
   private readonly cleanupInterval: NodeJS.Timeout;
 
   constructor() {
-    this.cleanupInterval = setInterval(() => {
-      this.cleanup();
-    }, 5 * 60 * 1000);
+    this.cleanupInterval = setInterval(
+      () => {
+        this.cleanup();
+      },
+      5 * 60 * 1000,
+    );
   }
 
-  async hit(key: string, windowMs: number, max: number): Promise<RateLimitResult> {
+  async hit(
+    key: string,
+    windowMs: number,
+    max: number,
+  ): Promise<RateLimitResult> {
     const now = new Date();
-    const windowStart = new Date(Math.floor(now.getTime() / windowMs) * windowMs);
+    const windowStart = new Date(
+      Math.floor(now.getTime() / windowMs) * windowMs,
+    );
     const resetTime = new Date(windowStart.getTime() + windowMs);
 
     let record = this.store.get(key);
@@ -76,7 +85,9 @@ export class MemoryRateLimitStore implements RateLimitStore {
 
   async increment(key: string, windowMs: number): Promise<number> {
     const now = new Date();
-    const windowStart = new Date(Math.floor(now.getTime() / windowMs) * windowMs);
+    const windowStart = new Date(
+      Math.floor(now.getTime() / windowMs) * windowMs,
+    );
     const resetTime = new Date(windowStart.getTime() + windowMs);
 
     let record = this.store.get(key);
@@ -97,7 +108,7 @@ export class MemoryRateLimitStore implements RateLimitStore {
 
   private cleanup(): void {
     const now = new Date();
-    const expired = [];
+    const expired: string[] = [];
 
     for (const [key, record] of this.store.entries()) {
       if (now > record.resetTime) {
@@ -105,10 +116,12 @@ export class MemoryRateLimitStore implements RateLimitStore {
       }
     }
 
-    expired.forEach(key => this.store.delete(key));
+    expired.forEach((key) => this.store.delete(key));
 
     if (expired.length > 0) {
-      this.logger.debug(`Cleaned up ${expired.length} expired rate limit records`);
+      this.logger.debug(
+        `Cleaned up ${expired.length} expired rate limit records`,
+      );
     }
   }
 

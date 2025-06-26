@@ -65,6 +65,7 @@ export class NotificationsController {
     type: Notification,
     examples: {
       example1: {
+        summary: 'Successful notification creation',
         value: {
           id: 'notif-uuid',
           type: 'TRANSACTION',
@@ -82,7 +83,13 @@ export class NotificationsController {
   async create(
     @Body() createNotificationDto: CreateNotificationDto,
   ): Promise<Notification> {
-    return this.notificationsService.create(createNotificationDto);
+    const notification = await this.notificationsService.create(
+      createNotificationDto,
+    );
+    if (!notification) {
+      throw new Error('Failed to create notification');
+    }
+    return notification;
   }
 
   @Get()
@@ -97,6 +104,7 @@ export class NotificationsController {
     type: [Notification],
     examples: {
       example1: {
+        summary: 'List of user notifications',
         value: [
           {
             id: 'notif-uuid',
@@ -123,7 +131,8 @@ export class NotificationsController {
   @Get('unread-count')
   @ApiOperation({
     summary: 'Get count of unread notifications',
-    description: 'Returns the count of unread notifications for the current user.',
+    description:
+      'Returns the count of unread notifications for the current user.',
   })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -165,6 +174,7 @@ export class NotificationsController {
     type: Notification,
     examples: {
       example1: {
+        summary: 'Single notification details',
         value: {
           id: 'notif-uuid',
           type: 'TRANSACTION',
@@ -333,6 +343,7 @@ export class NotificationsController {
     type: NotificationPreference,
     examples: {
       example1: {
+        summary: 'User notification preferences',
         value: {
           userId: 'user-uuid',
           email: true,

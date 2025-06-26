@@ -24,6 +24,6 @@ export class User {
   @Column({ default: true })
   allowPush: boolean;
 
-  @OneToMany(() => User, (user) => user.transaction)
-  transaction: Transaction;
+  @OneToMany(() => Transaction, (transaction) => transaction.user)
+  transactions: Transaction[];
 }

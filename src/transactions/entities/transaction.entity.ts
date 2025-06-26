@@ -19,7 +19,7 @@ export class Transaction {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @ManyToOne(() => User, (user) => user.transaction)
+  @ManyToOne(() => User, (user) => user.transactions)
   @JoinColumn({ name: 'userId' })
   user: User;
 
@@ -83,7 +83,6 @@ export class Transaction {
 
   @Column({ type: 'varchar', length: 100, nullable: true })
   method?: string;
-
 
   @CreateDateColumn()
   createdAt: Date;

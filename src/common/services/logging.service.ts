@@ -1,45 +1,20 @@
 import { Injectable, LoggerService, Scope } from '@nestjs/common';
-import { createLogger, format, transports, Logger } from 'winston';
+import * as winston from 'winston';
 import { ConfigService } from '../../config/config.service';
+
+const { combine, timestamp, printf, colorize } = winston.format;
+
+const logFormat = printf(({ level, message, timestamp, context }) => {
+  return `${timestamp} [${context || 'Application'}] ${level}: ${message}`;
+});
 
 @Injectable({ scope: Scope.TRANSIENT })
 export class LoggingService implements LoggerService {
   private context?: string;
-  private logger: Logger;
+  private readonly logger: winston.Logger;
 
-  constructor(private configService: ConfigService) {
-    const { combine, timestamp, printf, colorize, json } = format;
-
-    const logFormat = combine(
-      timestamp(),
-      json(),
-      printf(({ timestamp, level, message, context, ...meta }) => {
-        return JSON.stringify({
-          timestamp,
-          level,
-          context,
-          message,
-          ...meta,
-        });
-      }),
-    );
-
-    this.logger = createLogger({
-      level: this.configService.logLevel || 'info',
-      format: logFormat,
-      transports: [
-        new transports.Console({
-          format: combine(colorize(), logFormat),
-        }),
-        new transports.File({
-          filename: 'logs/error.log',
-          level: 'error',
-        }),
-        new transports.File({
-          filename: 'logs/combined.log',
-        }),
-      ],
-    });
+  constructor(private readonly configService: ConfigService) {
+    this.logger = this.createLogger();
   }
 
   setContext(context: string) {
@@ -65,4 +40,23 @@ export class LoggingService implements LoggerService {
   verbose(message: string, meta?: any) {
     this.logger.verbose(message, { context: this.context, ...meta });
   }
-} 
+
+  private createLogger(): winston.Logger {
+    return winston.createLogger({
+      level: this.configService.get<string>('LOG_LEVEL') || 'info',
+      format: winston.format.combine(
+        winston.format.timestamp(),
+        winston.format.errors({ stack: true }),
+        winston.format.json(),
+      ),
+      transports: [
+        new winston.transports.Console({
+          format: winston.format.combine(
+            winston.format.colorize(),
+            winston.format.simple(),
+          ),
+        }),
+      ],
+    });
+  }
+}
