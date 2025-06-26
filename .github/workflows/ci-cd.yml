@@ -1,0 +1,72 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npm run lint:check
+      - run: npm run format:check
+
+  test:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npm run test -- --ci --coverage
+      - run: npm run test:e2e
+
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npm run build
+      - name: Build Docker image
+        run: docker build -t myapp:${{ github.sha }} .
+      - name: Save Docker image as artifact
+        run: docker save myapp:${{ github.sha }} | gzip > myapp_${{ github.sha }}.tar.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: docker-image
+          path: myapp_${{ github.sha }}.tar.gz
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: docker-image
+      # Add your deployment steps here, e.g. push to Docker registry, SSH to server, etc.
+      # Example: docker load -i myapp_${{ github.sha }}.tar.gz
+      # Example: docker tag/push, or deploy to AWS/Render/Railway
+
+  monitor:
+    runs-on: ubuntu-latest
+    needs: deploy
+    steps:
+      - name: Placeholder for monitoring integration (e.g. Sentry)
+        run: echo "Monitoring hook - integrate Sentry or other tools here"
+      - name: Placeholder for rollback logic
+        run: echo "Rollback logic can be added here if monitoring fails"
