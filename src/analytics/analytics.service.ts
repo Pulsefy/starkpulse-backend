@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { PortfolioSnapshot } from '../portfolio/entities/portfolio.entity';
 import { Repository } from 'typeorm';
 import { PortfolioSnapshot } from 'src/portfolio/entities/portfolio-snapshot.entity';
 import { AnalyticsResponseDto } from './dto/analytics-response.dto';
@@ -11,7 +10,6 @@ export class AnalyticsService {
     @InjectRepository(PortfolioSnapshot)
     private readonly snapshotRepo: Repository<PortfolioSnapshot>,
   ) {}
-
 
   async getUserAnalytics(userId: string): Promise<AnalyticsResponseDto | null> {
     const snapshots = await this.snapshotRepo.find({

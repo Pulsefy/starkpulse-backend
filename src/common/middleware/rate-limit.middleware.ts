@@ -1,12 +1,13 @@
 import { Injectable, NestMiddleware, Logger } from '@nestjs/common';
-import { Request, Response, NextFunction } from 'express';
-import { Reflector } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
+import { Request, Response, NextFunction } from 'express';
 import { RateLimitService } from '../services/rate-limit.service';
-import { RateLimitConfig, RateLimitHeaders } from '../interfaces/rate-limit.interface';
-import { RateLimitException } from '../exceptions/rate-limit.exception';
+import { RateLimitException } from '../decorators/rate-limit.decorator';
+import {
+  RateLimitConfig,
+  RateLimitHeaders,
+} from '../interfaces/rate-limit.interface';
 import { RateLimitType } from '../enums/rate-limit.enum';
-import { RATE_LIMIT_KEY } from '../decorators/rate-limit.decorator';
 
 interface AuthenticatedRequest extends Request {
   user?: {
@@ -28,15 +29,20 @@ export class RateLimitMiddleware implements NestMiddleware {
   constructor(
     private readonly rateLimitService: RateLimitService,
     private readonly configService: ConfigService,
-    private readonly reflector: Reflector,
   ) {
-    this.defaultConfig = this.configService.get<RateLimitConfig>('rateLimit.default');
+    this.defaultConfig = this.configService.get<RateLimitConfig>(
+      'rateLimit.default',
+    ) || {
+      max: 100,
+      windowMs: 60000,
+      message: 'Too many requests',
+    };
   }
 
   async use(req: AuthenticatedRequest, res: Response, next: NextFunction) {
     try {
       const routeConfig = this.getRouteRateLimitConfig(req);
-      
+
       if (routeConfig?.skipIf?.(req)) {
         return next();
       }
@@ -67,15 +73,19 @@ export class RateLimitMiddleware implements NestMiddleware {
       this.addRateLimitHeaders(res, result, config);
 
       if (!result.allowed) {
-        const retryAfter = Math.ceil((result.resetTime.getTime() - Date.now()) / 1000);
-        
+        const retryAfter = Math.ceil(
+          (result.resetTime.getTime() - Date.now()) / 1000,
+        );
+
         this.logger.warn(
           `Rate limit exceeded for ${userId ? `user ${userId}` : `IP ${ipAddress}`} ` +
-          `on ${endpoint}. Key: ${key}, Hits: ${result.totalHits}, Limit: ${config.max}`
+            `on ${endpoint}. Key: ${key}, Hits: ${result.totalHits}, Limit: ${config.max}`,
         );
 
         throw new RateLimitException(
-          config.message || 'Too many requests, please try again later.',
+          typeof config.message === 'string'
+            ? config.message
+            : 'Too many requests, please try again later.',
           retryAfter,
           config.max,
           result.remaining,
@@ -85,7 +95,7 @@ export class RateLimitMiddleware implements NestMiddleware {
 
       this.logger.debug(
         `Rate limit check passed for ${userId ? `user ${userId}` : `IP ${ipAddress}`} ` +
-        `on ${endpoint}. Remaining: ${result.remaining}/${config.max}`
+          `on ${endpoint}. Remaining: ${result.remaining}/${config.max}`,
       );
 
       next();
@@ -108,37 +118,39 @@ export class RateLimitMiddleware implements NestMiddleware {
     }
   }
 
-  private getRouteRateLimitConfig(req: AuthenticatedRequest): Partial<RateLimitConfig> | null {
+  private getRouteRateLimitConfig(
+    req: AuthenticatedRequest,
+  ): Partial<RateLimitConfig> | null {
     return null;
   }
 
   private getClientIp(req: Request): string {
     return (
-      req.headers['x-forwarded-for'] as string ||
-      req.headers['x-real-ip'] as string ||
+      (req.headers['x-forwarded-for'] as string) ||
+      (req.headers['x-real-ip'] as string) ||
       req.connection.remoteAddress ||
       req.socket.remoteAddress ||
       'unknown'
     );
   }
 
-  private addRateLimitHeaders(res: Response, result: any, config: RateLimitConfig): void {
+  private addRateLimitHeaders(
+    res: Response,
+    result: any,
+    config: RateLimitConfig,
+  ): void {
     if (config.headers !== false) {
       const headers: RateLimitHeaders = {
         'X-RateLimit-Limit': config.max.toString(),
         'X-RateLimit-Remaining': result.remaining.toString(),
-        'X-RateLimit-Reset': Math.ceil(result.resetTime.getTime() / 1000).toString(),
+        'X-RateLimit-Reset': Math.ceil(
+          result.resetTime.getTime() / 1000,
+        ).toString(),
         'X-RateLimit-Used': result.totalHits.toString(),
       };
 
-      if (!result.allowed) {
-        headers['Retry-After'] = Math.ceil(
-          (result.resetTime.getTime() - Date.now()) / 1000
-        ).toString();
-      }
-
       Object.entries(headers).forEach(([key, value]) => {
-        if (value !== undefined) {
+        if (value !== null && value !== undefined) {
           res.setHeader(key, value);
         }
       });

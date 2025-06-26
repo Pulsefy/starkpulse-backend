@@ -27,14 +27,14 @@ export class MonitoringService {
   async collectMetrics(): Promise<void> {
     try {
       this.logger.debug('Collecting system metrics');
-      
+
       // Update system metrics
       this.metricsService.updateMemoryMetrics();
       await this.metricsService.updateDatabaseMetrics();
-      
+
       // Collect custom metrics
       await this.metricsCollectorService.collectAll();
-      
+
       this.logger.debug('Metrics collection completed');
     } catch (error) {
       this.logger.error('Failed to collect metrics:', error);
@@ -45,38 +45,51 @@ export class MonitoringService {
   async checkAlertConditions(): Promise<void> {
     try {
       this.logger.debug('Checking alert conditions');
-      
+
       const metrics = await this.metricsService.getMetricsSummary();
       const performance = metrics.performance;
       const custom = metrics.custom;
 
       // Check database response time
       if (performance.database.responseTime > this.thresholds.dbResponseTime) {
-        await this.alertingService.sendAlert('RESPONSE_TIME_HIGH', {
-          component: 'database',
-          responseTime: performance.database.responseTime,
-          threshold: this.thresholds.dbResponseTime,
-        });
+        await this.alertingService.sendAlert(
+          'RESPONSE_TIME_HIGH',
+          {
+            component: 'database',
+            responseTime: performance.database.responseTime,
+            threshold: this.thresholds.dbResponseTime,
+          },
+          'high',
+        );
       }
 
       // Check memory usage
-      const memoryUsagePercent = (custom.memory.heapUsed / custom.memory.heapTotal) * 100;
+      const memoryUsagePercent =
+        (custom.memory.heapUsed / custom.memory.heapTotal) * 100;
       if (memoryUsagePercent > this.thresholds.memoryUsage) {
-        await this.alertingService.sendAlert('MEMORY_USAGE_HIGH', {
-          usage: Math.round(memoryUsagePercent),
-          threshold: this.thresholds.memoryUsage,
-          heapUsed: custom.memory.heapUsed,
-          heapTotal: custom.memory.heapTotal,
-        });
+        await this.alertingService.sendAlert(
+          'MEMORY_USAGE_HIGH',
+          {
+            usage: Math.round(memoryUsagePercent),
+            threshold: this.thresholds.memoryUsage,
+            heapUsed: custom.memory.heapUsed,
+            heapTotal: custom.memory.heapTotal,
+          },
+          'high',
+        );
       }
 
       // Check application response time
       if (performance.application.responseTime > this.thresholds.responseTime) {
-        await this.alertingService.sendAlert('RESPONSE_TIME_HIGH', {
-          component: 'application',
-          responseTime: performance.application.responseTime,
-          threshold: this.thresholds.responseTime,
-        });
+        await this.alertingService.sendAlert(
+          'RESPONSE_TIME_HIGH',
+          {
+            component: 'application',
+            responseTime: performance.application.responseTime,
+            threshold: this.thresholds.responseTime,
+          },
+          'high',
+        );
       }
 
       this.logger.debug('Alert conditions check completed');
@@ -100,14 +113,14 @@ export class MonitoringService {
   async cleanupOldData(): Promise<void> {
     try {
       this.logger.debug('Cleaning up old monitoring data');
-      
+
       // Clear resolved alerts older than 24 hours
       const clearedAlerts = this.alertingService.clearResolvedAlerts();
       this.logger.log(`Cleared ${clearedAlerts} resolved alerts`);
-      
+
       // Reset some metrics to prevent memory leaks
       // This is optional and depends on your specific needs
-      
+
       this.logger.debug('Cleanup completed');
     } catch (error) {
       this.logger.error('Failed to cleanup old data:', error);
@@ -140,7 +153,7 @@ export class MonitoringService {
 
   async triggerEmergencyCheck(): Promise<void> {
     this.logger.warn('Emergency monitoring check triggered');
-    
+
     await Promise.allSettled([
       this.performHealthCheck(),
       this.collectMetrics(),
@@ -151,7 +164,9 @@ export class MonitoringService {
   // Configuration and management
   updateThresholds(newThresholds: Partial<typeof this.thresholds>): void {
     Object.assign(this.thresholds, newThresholds);
-    this.logger.log('Monitoring thresholds updated', { thresholds: this.thresholds });
+    this.logger.log('Monitoring thresholds updated', {
+      thresholds: this.thresholds,
+    });
   }
 
   getThresholds(): typeof this.thresholds {
@@ -166,7 +181,7 @@ export class MonitoringService {
     lastCheck: string;
   }> {
     const health = await this.healthService.checkOverallHealth();
-    
+
     return {
       status: health.status,
       uptime: process.uptime(),
@@ -207,8 +222,14 @@ export class MonitoringService {
     }
 
     // Check configuration
-    if (!process.env.SLACK_WEBHOOK_URL && !process.env.DISCORD_WEBHOOK_URL && !process.env.ALERT_WEBHOOK_URL) {
-      recommendations.push('Configure at least one alerting channel (Slack, Discord, or webhook)');
+    if (
+      !process.env.SLACK_WEBHOOK_URL &&
+      !process.env.DISCORD_WEBHOOK_URL &&
+      !process.env.ALERT_WEBHOOK_URL
+    ) {
+      recommendations.push(
+        'Configure at least one alerting channel (Slack, Discord, or webhook)',
+      );
     }
 
     if (!process.env.SMTP_HOST) {

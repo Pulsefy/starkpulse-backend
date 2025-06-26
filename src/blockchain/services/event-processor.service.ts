@@ -28,7 +28,9 @@ export class EventProcessorService {
     blockNumber: number;
   }) {
     try {
-      this.logger.debug(`Processing event: ${payload.eventName} from contract ${payload.contractAddress}`);
+      this.logger.debug(
+        `Processing event: ${payload.eventName} from contract ${payload.contractAddress}`,
+      );
       const event = await this.eventRepository.findOne({
         where: { id: payload.eventId },
         relations: ['contract'],
@@ -38,15 +40,32 @@ export class EventProcessorService {
         return;
       }
       switch (event.name) {
-        case 'Transfer': await this.processTransferEvent(event); break;
-        case 'Approval': await this.processApprovalEvent(event); break;
-        case 'Trade': await this.processTradeEvent(event); break;
-        case 'Deposit': await this.processDepositEvent(event); break;
-        case 'Withdrawal': await this.processWithdrawalEvent(event); break;
-        case 'Swap': await this.processSwapEvent(event); break;
-        case 'LiquidityAdded': await this.processLiquidityAddedEvent(event); break;
-        case 'LiquidityRemoved': await this.processLiquidityRemovedEvent(event); break;
-        default: await this.processGenericEvent(event);
+        case 'Transfer':
+          await this.processTransferEvent(event);
+          break;
+        case 'Approval':
+          await this.processApprovalEvent(event);
+          break;
+        case 'Trade':
+          await this.processTradeEvent(event);
+          break;
+        case 'Deposit':
+          await this.processDepositEvent(event);
+          break;
+        case 'Withdrawal':
+          await this.processWithdrawalEvent(event);
+          break;
+        case 'Swap':
+          await this.processSwapEvent(event);
+          break;
+        case 'LiquidityAdded':
+          await this.processLiquidityAddedEvent(event);
+          break;
+        case 'LiquidityRemoved':
+          await this.processLiquidityRemovedEvent(event);
+          break;
+        default:
+          await this.processGenericEvent(event);
       }
       await this.eventRepository.update(event.id, { isProcessed: true });
       this.eventEmitter.emit('event.processed', {
@@ -56,8 +75,12 @@ export class EventProcessorService {
         success: true,
       });
     } catch (error) {
-      this.logger.error(`Failed to process event ${payload.eventId}: ${error.message}`);
-      const event = await this.eventRepository.findOne({ where: { id: payload.eventId } });
+      this.logger.error(
+        `Failed to process event ${payload.eventId}: ${error.message}`,
+      );
+      const event = await this.eventRepository.findOne({
+        where: { id: payload.eventId },
+      });
       if (event) {
         const retryCount = event.data.retryCount || 0;
         if (retryCount < this.MAX_RETRY_COUNT) {
@@ -69,9 +92,12 @@ export class EventProcessorService {
               lastErrorTime: new Date().toISOString(),
             },
           });
-          setTimeout(() => {
-            this.eventEmitter.emit('contract.event.retry', payload);
-          }, Math.pow(2, retryCount) * 1000);
+          setTimeout(
+            () => {
+              this.eventEmitter.emit('contract.event.retry', payload);
+            },
+            Math.pow(2, retryCount) * 1000,
+          );
         } else {
           await this.eventRepository.update(event.id, {
             data: {
@@ -112,7 +138,9 @@ export class EventProcessorService {
     });
     for (const event of unprocessedEvents) {
       if (!event.contract) {
-        const contract = await this.contractRepository.findOne({ where: { id: event.contractId } });
+        const contract = await this.contractRepository.findOne({
+          where: { id: event.contractId },
+        });
         if (!contract) continue;
         event.contract = contract;
       }
@@ -150,19 +178,74 @@ export class EventProcessorService {
     else if (timespan === 'day') startDate.setDate(startDate.getDate() - 1);
     else if (timespan === 'week') startDate.setDate(startDate.getDate() - 7);
 
-    const totalEvents = await this.eventRepository.count({ where: { createdAt: MoreThan(startDate) } });
-    const processedEvents = await this.eventRepository.count({ where: { createdAt: MoreThan(startDate), isProcessed: true } });
+    const totalEvents = await this.eventRepository.count({
+      where: { createdAt: MoreThan(startDate) },
+    });
+    const processedEvents = await this.eventRepository.count({
+      where: { createdAt: MoreThan(startDate), isProcessed: true },
+    });
 
     return {
       timespan,
       totalEvents,
       processedEvents,
-      processingRate: totalEvents > 0 ? (processedEvents / totalEvents) * 100 : 100,
+      processingRate:
+        totalEvents > 0 ? (processedEvents / totalEvents) * 100 : 100,
     };
   }
 
-  // Event-specific processors below remain unchanged
-  // (...)
+  // Add the missing event processing methods:
+  private async processTransferEvent(event: any): Promise<void> {
+    // Implementation for transfer event processing
+    this.logger.log(`Processing Transfer event: ${event.id}`);
+    // Add your transfer event logic here
+  }
 
-  // Additional unchanged methods: processUnprocessedEvents, cleanupFailedEvents, getProcessingMetrics
+  private async processApprovalEvent(event: any): Promise<void> {
+    // Implementation for approval event processing
+    this.logger.log(`Processing Approval event: ${event.id}`);
+    // Add your approval event logic here
+  }
+
+  private async processTradeEvent(event: any): Promise<void> {
+    // Implementation for trade event processing
+    this.logger.log(`Processing Trade event: ${event.id}`);
+    // Add your trade event logic here
+  }
+
+  private async processDepositEvent(event: any): Promise<void> {
+    // Implementation for deposit event processing
+    this.logger.log(`Processing Deposit event: ${event.id}`);
+    // Add your deposit event logic here
+  }
+
+  private async processWithdrawalEvent(event: any): Promise<void> {
+    // Implementation for withdrawal event processing
+    this.logger.log(`Processing Withdrawal event: ${event.id}`);
+    // Add your withdrawal event logic here
+  }
+
+  private async processSwapEvent(event: any): Promise<void> {
+    // Implementation for swap event processing
+    this.logger.log(`Processing Swap event: ${event.id}`);
+    // Add your swap event logic here
+  }
+
+  private async processLiquidityAddedEvent(event: any): Promise<void> {
+    // Implementation for liquidity added event processing
+    this.logger.log(`Processing LiquidityAdded event: ${event.id}`);
+    // Add your liquidity added event logic here
+  }
+
+  private async processLiquidityRemovedEvent(event: any): Promise<void> {
+    // Implementation for liquidity removed event processing
+    this.logger.log(`Processing LiquidityRemoved event: ${event.id}`);
+    // Add your liquidity removed event logic here
+  }
+
+  private async processGenericEvent(event: any): Promise<void> {
+    // Implementation for generic event processing
+    this.logger.log(`Processing generic event: ${event.id}`);
+    // Add your generic event logic here
+  }
 }

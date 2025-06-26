@@ -5,10 +5,24 @@ import { TrustedUserConfig } from '../interfaces/rate-limit.interface';
 @Injectable()
 export class TrustedUserService {
   private readonly logger = new Logger(TrustedUserService.name);
-  private trustedConfig: TrustedUserConfig;
+  private readonly trustedConfig: TrustedUserConfig;
 
   constructor(private readonly configService: ConfigService) {
-    this.trustedConfig = this.configService.get<TrustedUserConfig>('rateLimit.trusted');
+    this.trustedConfig = this.configService.get<TrustedUserConfig>(
+      'rateLimit.trusted',
+    ) || {
+      userIds: [],
+      roles: ['admin'],
+      ipAddresses: [],
+      bypassFactor: 2.0,
+      trustedRoles: ['admin', 'premium'],
+      trustedIps: [],
+    };
+  }
+
+  // Add this method to fix the getConfig error
+  async getTrustedConfig(): Promise<TrustedUserConfig> {
+    return this.trustedConfig;
   }
 
   async isTrustedUser(
@@ -23,12 +37,17 @@ export class TrustedUserService {
       return true;
     }
 
-    if (userRoles && userRoles.some(role => this.trustedConfig.roles.includes(role))) {
-      this.logger.debug(`User ${userId} has trusted role: ${userRoles.join(', ')}`);
+    if (
+      userRoles &&
+      userRoles.some((role) => this.trustedConfig.trustedRoles.includes(role))
+    ) {
+      this.logger.debug(
+        `User with roles [${userRoles.join(', ')}] has trusted role`,
+      );
       return true;
     }
 
-    if (ipAddress && this.trustedConfig.ipAddresses.includes(ipAddress)) {
+    if (ipAddress && this.trustedConfig.trustedIps.includes(ipAddress)) {
       this.logger.debug(`IP ${ipAddress} is in trusted IPs list`);
       return true;
     }
@@ -52,21 +71,17 @@ export class TrustedUserService {
   }
 
   async addTrustedIp(ipAddress: string): Promise<void> {
-    if (!this.trustedConfig.ipAddresses.includes(ipAddress)) {
-      this.trustedConfig.ipAddresses.push(ipAddress);
+    if (!this.trustedConfig.trustedIps.includes(ipAddress)) {
+      this.trustedConfig.trustedIps.push(ipAddress);
       this.logger.log(`Added IP ${ipAddress} to trusted IPs list`);
     }
   }
 
   async removeTrustedIp(ipAddress: string): Promise<void> {
-    const index = this.trustedConfig.ipAddresses.indexOf(ipAddress);
+    const index = this.trustedConfig.trustedIps.indexOf(ipAddress);
     if (index > -1) {
-      this.trustedConfig.ipAddresses.splice(index, 1);
+      this.trustedConfig.trustedIps.splice(index, 1);
       this.logger.log(`Removed IP ${ipAddress} from trusted IPs list`);
     }
-  }
-
-  getTrustedConfig(): TrustedUserConfig {
-    return { ...this.trustedConfig };
   }
 }

@@ -1,16 +1,17 @@
 import { CreatePriceDto } from './dto/create-price.dto';
 import { UpdatePriceDto } from './dto/update-price.dto';
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, MoreThanOrEqual } from 'typeorm';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
-import { InjectRepository } from '@nestjs/typeorm';
-import { MoreThanOrEqual, Repository } from 'typeorm';
-
-import { lastValueFrom } from 'rxjs';
 import { Cron, CronExpression } from '@nestjs/schedule';
+// Remove rxjs import
+// import { lastValueFrom } from 'rxjs';
 import { NftPrice } from './entities/nft-price.entity';
 import { TokenPrice } from './entities/token-price.entity';
 import { PriceAlert } from './entities/price.entity';
+
 import { PriceFetcherService } from './price-fetcher.service';
 import { NotificationsService } from '../notifications/notifications.service';
 
@@ -121,15 +122,16 @@ export class PriceService implements OnModuleInit {
       const apiKey = this.configService.get<string>('PRICE_API_KEY');
       const apiUrl = this.configService.get<string>('PRICE_API_URL');
 
-      const response = await lastValueFrom(
-        this.httpService.get(`${apiUrl}/tokens/price`, {
+      // Replace lastValueFrom with toPromise()
+      const response = await this.httpService
+        .get(`${apiUrl}/tokens/price`, {
           params: {
             address: tokenAddress,
             chain: 'starknet',
             apiKey,
           },
-        }),
-      );
+        })
+        .toPromise();
 
       if (!response.data || !response.data.price) {
         throw new Error(`Invalid price data for token ${tokenAddress}`);
@@ -174,10 +176,7 @@ export class PriceService implements OnModuleInit {
     }
   }
 
-  async getNftPrice(
-    contractAddress: string,
-    tokenId: string,
-  ): Promise<number | null> {
+  async getNftPrice(contractAddress: string, tokenId: string): Promise<number> {
     try {
       // Check database first
       const storedPrice = await this.nftPriceRepository.findOne({
@@ -196,19 +195,20 @@ export class PriceService implements OnModuleInit {
       const apiKey = this.configService.get<string>('NFT_PRICE_API_KEY');
       const apiUrl = this.configService.get<string>('NFT_PRICE_API_URL');
 
-      const response = await lastValueFrom(
-        this.httpService.get(`${apiUrl}/nfts/price`, {
+      // Replace lastValueFrom with toPromise()
+      const response = await this.httpService
+        .get(`${apiUrl}/nfts/price`, {
           params: {
             contractAddress,
             tokenId,
             chain: 'starknet',
             apiKey,
           },
-        }),
-      );
+        })
+        .toPromise();
 
       if (!response.data || !response.data.price) {
-        return storedPrice ? parseFloat(storedPrice.priceUsd) : null;
+        return storedPrice ? parseFloat(storedPrice.priceUsd) : 0; // Return 0 instead of null
       }
 
       const priceUsd = response.data.price.toString();
@@ -224,22 +224,8 @@ export class PriceService implements OnModuleInit {
 
       return parseFloat(priceUsd);
     } catch (error) {
-      this.logger.error(
-        `Failed to fetch price for NFT ${contractAddress}:${tokenId}`,
-        error,
-      );
-
-      // Return last known price if available
-      const lastPrice = await this.nftPriceRepository.findOne({
-        where: { contractAddress, tokenId },
-        order: { updatedAt: 'DESC' },
-      });
-
-      if (lastPrice) {
-        return parseFloat(lastPrice.priceUsd);
-      }
-
-      return null;
+      this.logger.error('Failed to fetch NFT price:', error);
+      throw error;
     }
   }
 

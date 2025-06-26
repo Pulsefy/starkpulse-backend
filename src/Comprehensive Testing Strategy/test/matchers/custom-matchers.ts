@@ -1,16 +1,18 @@
+// Create this as a proper module file
+export {};
+
 declare global {
   namespace jest {
     interface Matchers<R> {
-      toBeValidUser(): R;
-      toBeValidUserResponse(): R;
-      toHaveValidTimestamp(): R;
+      // Add your custom matcher declarations here
     }
   }
 }
 
 expect.extend({
   toBeValidUser(received: any) {
-    const pass = received &&
+    const pass =
+      received &&
       typeof received.id === 'string' &&
       typeof received.name === 'string' &&
       typeof received.email === 'string' &&
@@ -19,31 +21,36 @@ expect.extend({
 
     if (pass) {
       return {
-        message: () => `expected ${JSON.stringify(received)} not to be a valid user`,
+        message: () =>
+          `expected ${JSON.stringify(received)} not to be a valid user`,
         pass: true,
       };
     } else {
       return {
-        message: () => `expected ${JSON.stringify(received)} to be a valid user`,
+        message: () =>
+          `expected ${JSON.stringify(received)} to be a valid user`,
         pass: false,
       };
     }
   },
 
   toBeValidUserResponse(received: any) {
-    const pass = received &&
+    const pass =
+      received &&
       typeof received.statusCode === 'number' &&
       typeof received.message === 'string' &&
       received.data !== undefined;
 
     if (pass) {
       return {
-        message: () => `expected ${JSON.stringify(received)} not to be a valid user response`,
+        message: () =>
+          `expected ${JSON.stringify(received)} not to be a valid user response`,
         pass: true,
       };
     } else {
       return {
-        message: () => `expected ${JSON.stringify(received)} to be a valid user response`,
+        message: () =>
+          `expected ${JSON.stringify(received)} to be a valid user response`,
         pass: false,
       };
     }

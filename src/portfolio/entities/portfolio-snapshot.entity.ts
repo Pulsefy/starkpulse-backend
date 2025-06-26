@@ -15,6 +15,9 @@ export class PortfolioSnapshot {
   @Column({ type: 'decimal', precision: 30, scale: 2, default: '0' })
   totalValueUsd: string;
 
+  @Column({ type: 'int', default: 0 })
+  assetCount: number;
+
   /** JSON object mapping each assetAddress to { balance, valueUsd } */
   @Column({ type: 'jsonb' })
   assetBreakdown: Record<string, any>;
@@ -22,4 +25,7 @@ export class PortfolioSnapshot {
   /** When this snapshot was recorded */
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   timestamp: Date;
+
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  createdAt: Date;
 }

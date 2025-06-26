@@ -1,35 +1,39 @@
 import { Injectable } from '@nestjs/common';
-import { Cron } from '@nestjs/schedule';
 import { HttpService } from '@nestjs/axios';
-import { firstValueFrom } from 'rxjs';
+import { Cron } from '@nestjs/schedule';
 
 @Injectable()
 export class CacheWarmupService {
   constructor(private readonly httpService: HttpService) {}
 
-  // Warm news cache before peak hours (9 AM)
   @Cron('0 0 9 * * 1-5') // Weekdays at 9 AM
-  async warmNewsCache() {
+  async warmupMarketData() {
     try {
-      await firstValueFrom(
-        this.httpService.get('http://localhost:3000/api/news'),
-      );
-      console.log('News cache warmed successfully');
+      // Warmup market data endpoints
+      const endpoints = [
+        '/api/market-data/prices',
+        '/api/market-data/trending',
+        '/api/market-data/volume',
+      ];
+
+      for (const endpoint of endpoints) {
+        await this.httpService
+          .get(`http://localhost:3000${endpoint}`)
+          .toPromise();
+      }
     } catch (error) {
-      console.error('Error warming news cache:', error);
+      console.error('Market data warmup failed:', error);
     }
   }
 
-  // Warm market cache before trading hours (8:30 AM)
-  @Cron('0 30 8 * * 1-5') // Weekdays at 8:30 AM
-  async warmMarketCache() {
+  async warmupUserData() {
     try {
-      await firstValueFrom(
-        this.httpService.get('http://localhost:3000/api/market/summary'),
-      );
-      console.log('Market cache warmed successfully');
+      // Warmup frequently accessed user data
+      await this.httpService
+        .get('http://localhost:3000/api/users/active')
+        .toPromise();
     } catch (error) {
-      console.error('Error warming market cache:', error);
+      console.error('User data warmup failed:', error);
     }
   }
 }

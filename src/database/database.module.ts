@@ -1,9 +1,10 @@
-import { Module, Global } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { CacheModule } from '@nestjs/cache-manager';
 import { DatabaseService } from './database.service';
-import { DatabasePerformanceInterceptor } from './interceptors/database-performance.interceptor';
+// Remove this import
+// import { DatabasePerformanceInterceptor } from './interceptors/database-performance.interceptor';
 import { QueryCacheService } from './services/query-cache.service';
 import { DatabaseHealthService } from './services/database-health.service';
 import { redisStore } from 'cache-manager-ioredis-yet';
@@ -83,7 +84,8 @@ import { redisStore } from 'cache-manager-ioredis-yet';
   ],
   providers: [
     DatabaseService,
-    DatabasePerformanceInterceptor,
+    // Remove this provider
+    // DatabasePerformanceInterceptor,
     QueryCacheService,
     DatabaseHealthService,
   ],

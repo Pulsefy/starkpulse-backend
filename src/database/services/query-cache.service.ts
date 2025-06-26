@@ -31,11 +31,22 @@ export class QueryCacheService {
   }
 
   async invalidatePattern(pattern: string): Promise<void> {
-    // Implementation depends on your cache store
-    // For Redis, you might use SCAN and DEL commands
-    const keys = await this.cacheManager.store.keys(`query:*${pattern}*`);
-    if (keys.length > 0) {
-      await Promise.all(keys.map((key) => this.cacheManager.del(key)));
+    try {
+      // For memory cache, we need to iterate through keys differently
+      const store = (this.cacheManager as any).store;
+      if (store && typeof store.keys === 'function') {
+        const keys = await store.keys(`query:*${pattern}*`);
+        if (keys.length > 0) {
+          await Promise.all(
+            keys.map((key: string) => this.cacheManager.del(key)),
+          );
+        }
+      } else {
+        // Fallback for stores that don't support pattern matching
+        console.warn('Cache store does not support pattern-based invalidation');
+      }
+    } catch (error) {
+      console.error('Error invalidating cache pattern:', error);
     }
   }
 

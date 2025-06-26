@@ -20,9 +20,6 @@ export interface UserInteraction {
 
 @Injectable()
 export class PersonalizationEngine {
-  personalize(allArticles: NewsArticle[], preferences: PersonalizationPreferencesDto) {
-    throw new Error('Method not implemented.');
-  }
   private userInteractionHistory: Map<string, UserInteraction[]> = new Map();
   private categoryWeights: Map<string, Record<string, number>> = new Map();
   private sourceWeights: Map<string, Record<string, number>> = new Map();
@@ -31,19 +28,22 @@ export class PersonalizationEngine {
   async personalizeArticles(
     articles: NewsArticle[],
     userPreferences: UserPreferences,
-    feedRequest: PersonalizedFeedDto
+    feedRequest: PersonalizedFeedDto,
   ): Promise<NewsArticle[]> {
     const scoredArticles = await Promise.all(
       articles.map(async (article) => {
-        const score = await this.calculatePersonalizationScore(article, userPreferences);
+        const score = await this.calculatePersonalizationScore(
+          article,
+          userPreferences,
+        );
         return { article, score };
-      })
+      }),
     );
 
     const sortedArticles = scoredArticles
       .sort((a, b) => b.score.score - a.score.score)
       .slice(0, feedRequest.limit || 50)
-      .map(item => {
+      .map((item) => {
         item.article.relevanceScore = item.score.score;
         return item.article;
       });
@@ -53,7 +53,7 @@ export class PersonalizationEngine {
 
   async calculatePersonalizationScore(
     article: NewsArticle,
-    userPreferences: UserPreferences
+    userPreferences: UserPreferences,
   ): Promise<PersonalizationScore> {
     const reasons: string[] = [];
     let totalScore = 0;
@@ -82,53 +82,83 @@ export class PersonalizationEngine {
     const engagementScore = this.calculateEngagementBoost(article);
     totalScore += engagementScore * 0.1;
 
-    const userHistoryScore = await this.calculateUserHistoryScore(article, userPreferences.userId);
+    const userHistoryScore = await this.calculateUserHistoryScore(
+      article,
+      userPreferences.userId,
+    );
     totalScore += userHistoryScore * 0.1;
 
-    const sentimentScore = this.calculateSentimentScore(article, userPreferences);
+    const sentimentScore = this.calculateSentimentScore(
+      article,
+      userPreferences,
+    );
     if (sentimentScore !== 0) {
       totalScore += sentimentScore * 0.05;
-      reasons.push(`Sentiment preference: ${userPreferences.sentimentPreference}`);
+      reasons.push(
+        `Sentiment preference: ${userPreferences.sentimentPreference}`,
+      );
     }
 
-    const diversityPenalty = this.calculateDiversityPenalty(article, userPreferences.userId);
+    const diversityPenalty = this.calculateDiversityPenalty(
+      article,
+      userPreferences.userId,
+    );
     totalScore -= diversityPenalty;
 
     return {
       articleId: article.id,
       score: Math.max(0, Math.min(1, totalScore)),
-      reasons
+      reasons,
     };
   }
 
-  private calculateCategoryScore(article: NewsArticle, userPreferences: UserPreferences): number {
+  private calculateCategoryScore(
+    article: NewsArticle,
+    userPreferences: UserPreferences,
+  ): number {
     if (!userPreferences.preferredCategories?.length) return 0;
 
-    const userCategoryWeights = this.categoryWeights.get(userPreferences.userId) || {};
-    const baseScore = userPreferences.preferredCategories.includes(article.category) ? 0.8 : 0;
+    const userCategoryWeights =
+      this.categoryWeights.get(userPreferences.userId) || {};
+    const baseScore = userPreferences.preferredCategories.includes(
+      article.category,
+    )
+      ? 0.8
+      : 0;
     const weightBonus = userCategoryWeights[article.category] || 0;
 
     return Math.min(1, baseScore + weightBonus);
   }
 
-  private calculateSourceScore(article: NewsArticle, userPreferences: UserPreferences): number {
+  private calculateSourceScore(
+    article: NewsArticle,
+    userPreferences: UserPreferences,
+  ): number {
     if (userPreferences.blockedSources?.includes(article.source)) {
       return -0.5;
     }
 
     if (!userPreferences.preferredSources?.length) return 0;
 
-    const userSourceWeights = this.sourceWeights.get(userPreferences.userId) || {};
-    const baseScore = userPreferences.preferredSources.includes(article.source) ? 0.7 : 0;
+    const userSourceWeights =
+      this.sourceWeights.get(userPreferences.userId) || {};
+    const baseScore = userPreferences.preferredSources.includes(article.source)
+      ? 0.7
+      : 0;
     const weightBonus = userSourceWeights[article.source] || 0;
 
     return Math.min(1, baseScore + weightBonus);
   }
 
-  private calculateKeywordScore(article: NewsArticle, userPreferences: UserPreferences): number {
-    if (!userPreferences.keywords?.length || !article.keywords?.length) return 0;
+  private calculateKeywordScore(
+    article: NewsArticle,
+    userPreferences: UserPreferences,
+  ): number {
+    if (!userPreferences.keywords?.length || !article.keywords?.length)
+      return 0;
 
-    const userKeywordWeights = this.keywordWeights.get(userPreferences.userId) || {};
+    const userKeywordWeights =
+      this.keywordWeights.get(userPreferences.userId) || {};
     let score = 0;
     let matchCount = 0;
 
@@ -136,12 +166,14 @@ export class PersonalizationEngine {
       const keywordLower = keyword.toLowerCase();
       const titleMatch = article.title.toLowerCase().includes(keywordLower);
       const contentMatch = article.content.toLowerCase().includes(keywordLower);
-      const tagMatch = article.keywords.some(tag => tag.toLowerCase().includes(keywordLower));
+      const tagMatch = article.keywords.some((tag) =>
+        tag.toLowerCase().includes(keywordLower),
+      );
 
       if (titleMatch || contentMatch || tagMatch) {
         matchCount++;
         const weight = userKeywordWeights[keyword] || 1;
-        
+
         if (titleMatch) score += 0.3 * weight;
         if (contentMatch) score += 0.1 * weight;
         if (tagMatch) score += 0.2 * weight;
@@ -168,11 +200,17 @@ export class PersonalizationEngine {
     return Math.min(0.3, article.engagementScore / 100);
   }
 
-  private async calculateUserHistoryScore(article: NewsArticle, userId: string): Promise<number> {
+  private async calculateUserHistoryScore(
+    article: NewsArticle,
+    userId: string,
+  ): Promise<number> {
     const interactions = this.userInteractionHistory.get(userId) || [];
-    
-    const similarArticles = interactions.filter(interaction => {
-      return interaction.interactionType === 'like' || interaction.interactionType === 'share';
+
+    const similarArticles = interactions.filter((interaction) => {
+      return (
+        interaction.interactionType === 'like' ||
+        interaction.interactionType === 'share'
+      );
     });
 
     if (similarArticles.length === 0) return 0;
@@ -190,25 +228,36 @@ export class PersonalizationEngine {
     return Math.min(0.3, similarityScore);
   }
 
-  private calculateSentimentScore(article: NewsArticle, userPreferences: UserPreferences): number {
-    if (!userPreferences.sentimentPreference || userPreferences.sentimentPreference === 'all') {
+  private calculateSentimentScore(
+    article: NewsArticle,
+    userPreferences: UserPreferences,
+  ): number {
+    if (
+      !userPreferences.sentimentPreference ||
+      userPreferences.sentimentPreference === 'all'
+    ) {
       return 0;
     }
 
     if (!article.sentimentLabel) return 0;
 
-    return article.sentimentLabel === userPreferences.sentimentPreference ? 0.2 : -0.1;
+    return article.sentimentLabel === userPreferences.sentimentPreference
+      ? 0.2
+      : -0.1;
   }
 
-  private calculateDiversityPenalty(article: NewsArticle, userId: string): number {
+  private calculateDiversityPenalty(
+    article: NewsArticle,
+    userId: string,
+  ): number {
     const recentInteractions = this.getRecentInteractions(userId, 24);
-    
-    const sameSourceCount = recentInteractions.filter(i => 
-      i.interactionType === 'view' && article.source === i.articleId
+
+    const sameSourceCount = recentInteractions.filter(
+      (i) => i.interactionType === 'view' && article.source === i.articleId,
     ).length;
 
-    const sameCategoryCount = recentInteractions.filter(i => 
-      i.interactionType === 'view' && article.category === i.articleId
+    const sameCategoryCount = recentInteractions.filter(
+      (i) => i.interactionType === 'view' && article.category === i.articleId,
     ).length;
 
     let penalty = 0;
@@ -218,7 +267,10 @@ export class PersonalizationEngine {
     return Math.min(0.3, penalty);
   }
 
-  private diversifyResults(articles: NewsArticle[], userPreferences: UserPreferences): NewsArticle[] {
+  private diversifyResults(
+    articles: NewsArticle[],
+    userPreferences: UserPreferences,
+  ): NewsArticle[] {
     const diversified: NewsArticle[] = [];
     const sourceCount: Record<string, number> = {};
     const categoryCount: Record<string, number> = {};
@@ -232,72 +284,117 @@ export class PersonalizationEngine {
 
       diversified.push(article);
       sourceCount[article.source] = (sourceCount[article.source] || 0) + 1;
-      categoryCount[article.category] = (categoryCount[article.category] || 0) + 1;
+      categoryCount[article.category] =
+        (categoryCount[article.category] || 0) + 1;
 
-      if (diversified.length >= (userPreferences.preferredCategories?.length || 1) * 10) break;
+      if (
+        diversified.length >=
+        (userPreferences.preferredCategories?.length || 1) * 10
+      )
+        break;
     }
 
     return diversified;
   }
 
   async recordUserInteraction(interaction: UserInteraction): Promise<void> {
-    const userInteractions = this.userInteractionHistory.get(interaction.userId) || [];
+    const userInteractions =
+      this.userInteractionHistory.get(interaction.userId) || [];
     userInteractions.push(interaction);
-    
+
     this.userInteractionHistory.set(
       interaction.userId,
-      userInteractions.slice(-100)
+      userInteractions.slice(-100),
     );
 
     await this.updateUserWeights(interaction);
   }
 
   private async updateUserWeights(interaction: UserInteraction): Promise<void> {
-    const weightAdjustment = this.getWeightAdjustment(interaction.interactionType);
-    
-    if (interaction.interactionType === 'like' || interaction.interactionType === 'share') {
-      this.adjustCategoryWeight(interaction.userId, 'category', weightAdjustment);
+    const weightAdjustment = this.getWeightAdjustment(
+      interaction.interactionType,
+    );
+
+    if (
+      interaction.interactionType === 'like' ||
+      interaction.interactionType === 'share'
+    ) {
+      this.adjustCategoryWeight(
+        interaction.userId,
+        'category',
+        weightAdjustment,
+      );
       this.adjustSourceWeight(interaction.userId, 'source', weightAdjustment);
     } else if (interaction.interactionType === 'skip') {
-      this.adjustCategoryWeight(interaction.userId, 'category', -weightAdjustment);
+      this.adjustCategoryWeight(
+        interaction.userId,
+        'category',
+        -weightAdjustment,
+      );
       this.adjustSourceWeight(interaction.userId, 'source', -weightAdjustment);
     }
   }
 
   private getWeightAdjustment(interactionType: string): number {
     const adjustments = {
-      'like': 0.1,
-      'share': 0.15,
-      'comment': 0.08,
-      'view': 0.02,
-      'skip': -0.05
+      like: 0.1,
+      share: 0.15,
+      comment: 0.08,
+      view: 0.02,
+      skip: -0.05,
     };
     return adjustments[interactionType] || 0;
   }
 
-  private adjustCategoryWeight(userId: string, category: string, adjustment: number): void {
+  private adjustCategoryWeight(
+    userId: string,
+    category: string,
+    adjustment: number,
+  ): void {
     const weights = this.categoryWeights.get(userId) || {};
-    weights[category] = Math.max(-0.5, Math.min(0.5, (weights[category] || 0) + adjustment));
+    weights[category] = Math.max(
+      -0.5,
+      Math.min(0.5, (weights[category] || 0) + adjustment),
+    );
     this.categoryWeights.set(userId, weights);
   }
 
-  private adjustSourceWeight(userId: string, source: string, adjustment: number): void {
+  private adjustSourceWeight(
+    userId: string,
+    source: string,
+    adjustment: number,
+  ): void {
     const weights = this.sourceWeights.get(userId) || {};
-    weights[source] = Math.max(-0.5, Math.min(0.5, (weights[source] || 0) + adjustment));
+    weights[source] = Math.max(
+      -0.5,
+      Math.min(0.5, (weights[source] || 0) + adjustment),
+    );
     this.sourceWeights.set(userId, weights);
   }
 
-  private adjustKeywordWeight(userId: string, keyword: string, adjustment: number): void {
+  private adjustKeywordWeight(
+    userId: string,
+    keyword: string,
+    adjustment: number,
+  ): void {
     const weights = this.keywordWeights.get(userId) || {};
-    weights[keyword] = Math.max(-0.5, Math.min(0.5, (weights[keyword] || 0) + adjustment));
+    weights[keyword] = Math.max(
+      -0.5,
+      Math.min(0.5, (weights[keyword] || 0) + adjustment),
+    );
     this.keywordWeights.set(userId, weights);
   }
 
-  private getRecentInteractions(userId: string, hours: number = 24): UserInteraction[] {
+  private getRecentInteractions(
+    userId: string,
+    hours: number = 24,
+  ): UserInteraction[] {
     const interactions = this.userInteractionHistory.get(userId) || [];
     const cutoff = new Date(Date.now() - hours * 60 * 60 * 1000);
-    
-    return interactions.filter(interaction => interaction.timestamp >= cutoff);
+
+    return interactions.filter(
+      (interaction) => interaction.timestamp >= cutoff,
+    );
   }
 
   async getUserInsights(userId: string): Promise<{
@@ -311,10 +408,14 @@ export class PersonalizationEngine {
     const keywordWeights = this.keywordWeights.get(userId) || {};
     const interactions = this.userInteractionHistory.get(userId) || [];
 
-    const interactionSummary = interactions.reduce((summary, interaction) => {
-      summary[interaction.interactionType] = (summary[interaction.interactionType] || 0) + 1;
-      return summary;
-    }, {} as Record<string, number>);
+    const interactionSummary = interactions.reduce(
+      (summary, interaction) => {
+        summary[interaction.interactionType] =
+          (summary[interaction.interactionType] || 0) + 1;
+        return summary;
+      },
+      {} as Record<string, number>,
+    );
 
     return {
       topCategories: Object.entries(categoryWeights)
@@ -329,7 +430,7 @@ export class PersonalizationEngine {
         .sort(([, a], [, b]) => b - a)
         .slice(0, 20)
         .map(([keyword, weight]) => ({ keyword, weight })),
-      interactionSummary
+      interactionSummary,
     };
   }
 
@@ -340,18 +441,24 @@ export class PersonalizationEngine {
     this.keywordWeights.delete(userId);
   }
 
-  async getRecommendedCategories(userId: string, limit: number = 5): Promise<string[]> {
+  async getRecommendedCategories(
+    userId: string,
+    limit: number = 5,
+  ): Promise<string[]> {
     const categoryWeights = this.categoryWeights.get(userId) || {};
-    
+
     return Object.entries(categoryWeights)
       .sort(([, a], [, b]) => b - a)
       .slice(0, limit)
       .map(([category]) => category);
   }
 
-  async getRecommendedSources(userId: string, limit: number = 5): Promise<string[]> {
+  async getRecommendedSources(
+    userId: string,
+    limit: number = 5,
+  ): Promise<string[]> {
     const sourceWeights = this.sourceWeights.get(userId) || {};
-    
+
     return Object.entries(sourceWeights)
       .sort(([, a], [, b]) => b - a)
       .slice(0, limit)
