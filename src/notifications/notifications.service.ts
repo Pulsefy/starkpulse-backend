@@ -19,6 +19,9 @@ import { NotificationChannel } from './channels/notification-channel.interface';
 import { EmailChannel } from './channels/email.channel';
 import { PushChannel } from './channels/push.channel';
 import { SmsChannel } from './channels/sms.channel';
+import Handlebars from 'handlebars';
+import { NotificationDelivery } from './entities/notification-delivery.entity';
+import { Cron } from '@nestjs/schedule';
 
 @Injectable()
 export class NotificationsService {
@@ -34,6 +37,9 @@ export class NotificationsService {
 
     @InjectRepository(NotificationTemplate)
     private readonly templateRepo: Repository<NotificationTemplate>,
+
+    @InjectRepository(NotificationDelivery)
+    private readonly deliveryRepo: Repository<NotificationDelivery>,
 
     private readonly eventEmitter: EventEmitter2,
     private readonly mailService: MailService,
@@ -100,12 +106,17 @@ export class NotificationsService {
       return null;
     }
 
+    let notifContent = content;
+    if (templateKey) {
+      notifContent = await this.renderTemplate(templateKey, metadata);
+    }
+
     // 3. Create & save a new Notification entity
     const notif = this.notificationRepo.create(
       <DeepPartial<Notification>>{
         userId,
         title,
-        content,
+        content: notifContent,
         channel,
         type,
         metadata,
@@ -125,7 +136,7 @@ export class NotificationsService {
     await this.queue.add(
       'process-notification',
       { notificationId: saved.id },
-      {} /* job options can be left empty; tests only assert “expect.any(Object)” */,
+      {} /* job options can be left empty; tests only assert "expect.any(Object)" */,
     );
 
     // 5. Emit an application-level event
@@ -298,12 +309,12 @@ export class NotificationsService {
       where: { id: notificationId },
       relations: ['user'],
     });
-
     if (!notification) {
       this.logger.error(`Notification not found: ${notificationId}`);
       return;
     }
-
+    let status = NotificationStatus.SENT as any;
+    let errorMsg = null;
     try {
       if (notification.channel === 'email') {
         await this.mailService.sendEmail(notification);
@@ -312,24 +323,30 @@ export class NotificationsService {
       } else if (notification.channel === 'sms') {
         await this.smsChannel.send(notification);
       }
-
       notification.status = NotificationStatus.SENT as any;
       await this.notificationRepo.save(notification);
     } catch (error) {
       this.logger.error(
         `Failed to process notification ${notificationId}: ${error.message}`,
       );
-
       notification.status =
         notification.retryCount < 3
           ? (NotificationStatus.RETRYING as any)
           : (NotificationStatus.FAILED as any);
       notification.retryCount += 1;
       await this.notificationRepo.save(notification);
-
+      status = notification.status;
+      errorMsg = error.message;
       if (notification.status === (NotificationStatus.RETRYING as any)) {
         throw error;
       }
+    } finally {
+      await this.deliveryRepo.save({
+        notification: { id: notification.id },
+        channel: notification.channel,
+        status,
+        error: errorMsg || undefined,
+      });
     }
   }
 
@@ -449,16 +466,53 @@ export class NotificationsService {
   }
 
   async sendTransactionNotification(tx, eventType) {
-  const messages = {
-    transaction_confirmed: 'Transaction confirmed!',
-    transaction_failed: 'Transaction failed!',
-    transaction_rejected: 'Transaction rejected!',
-  };
+    const messages = {
+      transaction_confirmed: 'Transaction confirmed!',
+      transaction_failed: 'Transaction failed!',
+      transaction_rejected: 'Transaction rejected!',
+    };
 
-  const message = messages[eventType];
-  if (!message) return;
+    const message = messages[eventType];
+    if (!message) return;
 
-  // Replace this with actual email, in-app, or push notification logic
-  console.log(`Notify ${tx.userId}: ${message}`);
-}
+    // Replace this with actual email, in-app, or push notification logic
+    console.log(`Notify ${tx.userId}: ${message}`);
+  }
+
+  async renderTemplate(templateKey: string, data: any): Promise<string> {
+    const template = await this.templateRepo.findOne({ where: { name: templateKey } });
+    if (!template) throw new Error('Template not found');
+    return Handlebars.compile(template.content)(data);
+  }
+
+  @Cron('0 8 * * *') // Every day at 8am
+  async sendDailyBatches() {
+    const users = await this.prefRepo.find({ where: { emailFrequency: 'daily' } });
+    for (const user of users) {
+      const notifications = await this.notificationRepo.find({
+        where: { userId: user.userId, status: NotificationStatus.PENDING },
+      });
+      if (notifications.length > 0) {
+        const digestContent = notifications.map(n => n.content).join('\n');
+        await this.send({
+          userId: user.userId,
+          title: 'Your Daily Notification Digest',
+          content: digestContent,
+          channel: 'email',
+          type: NotificationType.SYSTEM,
+        });
+        for (const n of notifications) {
+          n.status = NotificationStatus.SENT;
+          await this.notificationRepo.save(n);
+        }
+      }
+    }
+  }
+
+  async getDeliveryHistory(notificationId: string): Promise<NotificationDelivery[]> {
+    return this.deliveryRepo.find({
+      where: { notification: { id: notificationId } },
+      order: { attemptedAt: 'DESC' },
+    });
+  }
 }
