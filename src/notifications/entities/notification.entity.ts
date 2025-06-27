@@ -6,10 +6,12 @@ import {
   ManyToOne,
   JoinColumn,
   UpdateDateColumn,
+  OneToMany,
 } from 'typeorm';
 import { User } from '../../users/users.entity';
 import { NotificationStatus } from '../enums/notificationStatus.enum';
 import { NotificationType } from '../enums/notificationType.enum';
+import { NotificationDelivery } from './notification-delivery.entity';
 
 // Remove the duplicate enum definition:
 // export enum NotificationStatus { ... }
@@ -120,4 +122,7 @@ export class Notification {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @OneToMany(() => NotificationDelivery, delivery => delivery.notification)
+  deliveries: NotificationDelivery[];
 }
