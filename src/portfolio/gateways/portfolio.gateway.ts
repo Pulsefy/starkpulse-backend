@@ -78,7 +78,28 @@ export class PortfolioGateway
     }
   }
 
+  @SubscribeMessage('subscribeToAnalytics')
+  async handleSubscribeToAnalytics(client: Socket) {
+    const userId = (client.data as { userId?: string })?.userId;
+    if (userId) {
+      await client.join(`analytics:${userId}`);
+      this.logger.log(`User ${userId} subscribed to analytics updates`);
+    }
+  }
+
   notifyPortfolioUpdate(userId: string, data: any): void {
     this.server.to(`portfolio:${userId}`).emit('portfolioUpdate', data);
+  }
+
+  notifyAnalyticsUpdate(userId: string, data: any): void {
+    this.server.to(`analytics:${userId}`).emit('analyticsUpdate', data);
+  }
+
+  notifyRiskAlert(userId: string, alert: any): void {
+    this.server.to(`analytics:${userId}`).emit('riskAlert', alert);
+  }
+
+  notifyPerformanceUpdate(userId: string, data: any): void {
+    this.server.to(`analytics:${userId}`).emit('performanceUpdate', data);
   }
 }
