@@ -30,6 +30,7 @@ describe('NotificationsService', () => {
   let smsChannel: { name: string; send: jest.Mock; sendBatch: jest.Mock };
   let queue: { add: jest.Mock };
   let eventEmitter: { emit: jest.Mock };
+  let deliveryRepo: MockRepository<any>;
 
   beforeEach(() => {
     notificationRepo = createMockRepository<Notification>();
@@ -42,6 +43,7 @@ describe('NotificationsService', () => {
     smsChannel = { name: 'sms', send: jest.fn(), sendBatch: jest.fn() };
     queue = { add: jest.fn() };
     eventEmitter = { emit: jest.fn() };
+    deliveryRepo = createMockRepository<any>();
 
     service = new NotificationsService(
       notificationRepo as any,
@@ -54,6 +56,7 @@ describe('NotificationsService', () => {
       pushChannel as any,
       smsChannel as any,
       queue as any,
+      deliveryRepo as any,
     );
   });
 
