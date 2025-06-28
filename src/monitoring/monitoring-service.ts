@@ -1,19 +1,36 @@
+/* eslint-disable prettier/prettier */
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { HealthService } from './health-service';
 import { MetricsService } from './metrics-service';
 import { AlertingService } from './alerting-service';
 import { MetricsCollectorService } from './metrics_collector_service';
+import { Counter, Gauge, Registry } from 'prom-client';
 
 @Injectable()
 export class MonitoringService {
   private readonly logger = new Logger(MonitoringService.name);
+
+  private readonly registry = new Registry();
+  private readonly requestCounter = new Counter({
+    name: 'http_requests_total',
+    help: 'Total number of HTTP requests',
+    labelNames: ['method', 'route', 'status'],
+    registers: [this.registry],
+  });
+
+  private readonly activeUsersGauge = new Gauge({
+    name: 'active_users_count',
+    help: 'Current number of active users',
+    registers: [this.registry],
+  });
+
   private readonly thresholds = {
-    errorRate: 5, // 5%
-    responseTime: 2000, // 2 seconds
-    memoryUsage: 85, // 85%
-    diskUsage: 90, // 90%
-    dbResponseTime: 1000, // 1 second
+    errorRate: 5,
+    responseTime: 2000,
+    memoryUsage: 85,
+    diskUsage: 90,
+    dbResponseTime: 1000,
   };
 
   constructor(
@@ -28,11 +45,9 @@ export class MonitoringService {
     try {
       this.logger.debug('Collecting system metrics');
 
-      // Update system metrics
       this.metricsService.updateMemoryMetrics();
       await this.metricsService.updateDatabaseMetrics();
 
-      // Collect custom metrics
       await this.metricsCollectorService.collectAll();
 
       this.logger.debug('Metrics collection completed');
@@ -46,7 +61,15 @@ export class MonitoringService {
     try {
       this.logger.debug('Checking alert conditions');
 
-      const metrics = await this.metricsService.getMetricsSummary();
+      const metrics = (await this.metricsService.getMetricsSummary()) as {
+        performance: {
+          database: { responseTime: number };
+          application: { responseTime: number };
+        };
+        custom: {
+          memory: { heapUsed: number; heapTotal: number };
+        };
+      };
       const performance = metrics.performance;
       const custom = metrics.custom;
 
@@ -110,7 +133,7 @@ export class MonitoringService {
   }
 
   @Cron(CronExpression.EVERY_HOUR)
-  async cleanupOldData(): Promise<void> {
+  cleanupOldData(): void {
     try {
       this.logger.debug('Cleaning up old monitoring data');
 
@@ -205,19 +228,21 @@ export class MonitoringService {
       await this.healthService.checkOverallHealth();
     } catch (error) {
       issues.push('Health check system is not working properly');
+      console.log(error);
     }
 
     try {
       // Test metrics collection
       await this.metricsService.getMetricsSummary();
     } catch (error) {
+      console.log(error);
       issues.push('Metrics collection is not working properly');
     }
 
     try {
       // Test alerting system
       await this.alertingService.sendTestAlert();
-    } catch (error) {
+    } catch {
       issues.push('Alerting system is not configured properly');
     }
 
