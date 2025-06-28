@@ -5,6 +5,7 @@ import { UpdateMonitoringDto } from './dto/update-monitoring.dto';
 
 @Injectable()
 export class MonitoringService {
+  getMetrics: any;
   create(createMonitoringDto: CreateMonitoringDto) {
     return 'This action adds a new monitoring';
   }
