@@ -1,4 +1,6 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+/* eslint-disable prettier/prettier */
+import { Controller, Get, Post, Body, Patch, Param, Delete, Res } from '@nestjs/common';
+import { Response } from 'express';
 import { MonitoringService } from './monitoring.service';
 import { CreateMonitoringDto } from './dto/create-monitoring.dto';
 import { UpdateMonitoringDto } from './dto/update-monitoring.dto';
@@ -6,6 +8,13 @@ import { UpdateMonitoringDto } from './dto/update-monitoring.dto';
 @Controller('monitoring')
 export class MonitoringController {
   constructor(private readonly monitoringService: MonitoringService) {}
+
+    @Get('metrics')
+  async getMetrics(@Res() res: Response) {
+    const metrics = await this.monitoringService.getMetrics();
+    res.set('Content-Type', 'text/plain');
+    res.send(metrics);
+  }
 
   @Post()
   create(@Body() createMonitoringDto: CreateMonitoringDto) {
