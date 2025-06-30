@@ -5,51 +5,30 @@ import { SystemHealthService } from '../services/system-health.service';
 import { TrustedUserService } from '../services/trusted-user.service';
 import { MemoryRateLimitStore } from '../stores/memory-rate-limit.store';
 import { RateLimitType } from '../enums/rate-limit.enum';
+import { TokenBucketRateLimitConfig, UserRateLimitAdjustment } from '../interfaces/rate-limit.interface';
 
 describe('RateLimitService', () => {
   let service: RateLimitService;
-  let rateLimitStore: MemoryRateLimitStore;
-  let trustedUserService: TrustedUserService;
+  let trustedUserService: any;
+  let configService: any;
+  let store: any;
 
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      providers: [
-        RateLimitService,
-        {
-          provide: MemoryRateLimitStore,
-          useValue: {
-            hit: jest.fn(),
-            get: jest.fn(),
-            reset: jest.fn(),
-          },
-        },
-        {
-          provide: ConfigService,
-          useValue: {
-            get: jest.fn().mockReturnValue({
-              adaptive: null,
-              trusted: { bypassFactor: 10 },
-            }),
-          },
-        },
-        {
-          provide: SystemHealthService,
-          useValue: {
-            getSystemHealth: jest.fn(),
-          },
-        },
-        {
-          provide: TrustedUserService,
-          useValue: {
-            isTrustedUser: jest.fn(),
-          },
-        },
-      ],
-    }).compile();
-
-    service = module.get<RateLimitService>(RateLimitService);
-    rateLimitStore = module.get<MemoryRateLimitStore>(MemoryRateLimitStore);
-    trustedUserService = module.get<TrustedUserService>(TrustedUserService);
+  beforeEach(() => {
+    trustedUserService = { isTrustedUser: jest.fn().mockResolvedValue(false) };
+    configService = { get: jest.fn().mockReturnValue(undefined) };
+    store = {
+      hit: jest.fn().mockResolvedValue({
+        allowed: true,
+        remaining: 1,
+        resetTime: new Date(),
+        totalHits: 1,
+        windowStart: new Date(),
+      }),
+      get: jest.fn().mockResolvedValue(null),
+      reset: jest.fn().mockResolvedValue(undefined),
+      increment: jest.fn().mockResolvedValue(1),
+    };
+    service = new RateLimitService(configService, trustedUserService, store);
   });
 
   describe('checkRateLimit', () => {
@@ -62,7 +41,7 @@ describe('RateLimitService', () => {
         windowStart: new Date(),
       };
 
-      jest.spyOn(rateLimitStore, 'hit').mockResolvedValue(mockResult);
+      jest.spyOn(store, 'hit').mockResolvedValue(mockResult);
       jest.spyOn(trustedUserService, 'isTrustedUser').mockResolvedValue(false);
 
       const result = await service.checkRateLimit(
@@ -74,7 +53,7 @@ describe('RateLimitService', () => {
       );
 
       expect(result).toEqual(mockResult);
-      expect(rateLimitStore.hit).toHaveBeenCalledWith('test-key', 60000, 100);
+      expect(store.hit).toHaveBeenCalledWith('test-key', 60000, 100);
     });
 
     it('should increase limit for trusted users', async () => {
@@ -86,24 +65,21 @@ describe('RateLimitService', () => {
         windowStart: new Date(),
       };
 
-      jest.spyOn(rateLimitStore, 'hit').mockResolvedValue(mockResult);
+      configService.get = jest.fn().mockImplementation((key) => {
+        if (key === 'rateLimit.trusted') return { bypassFactor: 2.0 };
+        return undefined;
+      });
+      jest.spyOn(store, 'hit').mockResolvedValue(mockResult);
       jest.spyOn(trustedUserService, 'isTrustedUser').mockResolvedValue(true);
 
-      const result = await service.checkRateLimit(
-        'test-key',
-        { windowMs: 60000, max: 100 },
-        1,
-        ['admin'],
-        '192.168.1.1',
-      );
-
+      const result = await service.checkRateLimit('test-key', { windowMs: 60000, max: 100 });
       expect(result).toEqual(mockResult);
-      // Should be called with increased limit (100 * 10 = 1000)
-      expect(rateLimitStore.hit).toHaveBeenCalledWith('test-key', 60000, 1000);
+      // Should be called with increased limit (100 * 2 = 200)
+      expect(store.hit).toHaveBeenCalledWith('test-key', 60000, 200);
     });
 
     it('should handle store errors gracefully', async () => {
-      jest.spyOn(rateLimitStore, 'hit').mockRejectedValue(new Error('Store error'));
+      jest.spyOn(store, 'hit').mockRejectedValue(new Error('Store error'));
       jest.spyOn(trustedUserService, 'isTrustedUser').mockResolvedValue(false);
 
       const result = await service.checkRateLimit(
@@ -122,6 +98,62 @@ describe('RateLimitService', () => {
       expect(service.generateKey(RateLimitType.PER_IP, undefined, '192.168.1.1')).toBe('ip:192.168.1.1');
       expect(service.generateKey(RateLimitType.PER_ENDPOINT, undefined, undefined, '/api/test')).toBe('endpoint:/api/test');
       expect(service.generateKey(RateLimitType.COMBINED, 123, '192.168.1.1', '/api/test')).toBe('combined:123:192.168.1.1:/api/test');
+    });
+  });
+
+  describe('RateLimitService (TokenBucket)', () => {
+    let trustedUserService: any;
+    let configService: any;
+    let store: any;
+
+    beforeEach(() => {
+      trustedUserService = { isTrustedUser: jest.fn().mockResolvedValue(false) };
+      configService = { get: jest.fn().mockReturnValue(undefined) };
+      const TokenBucketRateLimitStore = require('../stores/token-bucket-rate-limit.store').TokenBucketRateLimitStore;
+      store = new TokenBucketRateLimitStore();
+      service = new RateLimitService(configService, trustedUserService, store);
+    });
+
+    it('should enforce token bucket burst and refill', async () => {
+      const config: any = {
+        tokenBucket: {
+          capacity: 3,
+          refillRate: 1,
+          refillIntervalMs: 100,
+          burstCapacity: 3,
+        } as TokenBucketRateLimitConfig,
+      };
+      const key = 'user:tb:burst';
+      for (let i = 0; i < 3; i++) {
+        const result = await service.checkRateLimit(key, config);
+        expect(result.allowed).toBe(true);
+      }
+      const result = await service.checkRateLimit(key, config);
+      expect(result.allowed).toBe(false);
+      await new Promise((r) => setTimeout(r, 110));
+      const afterRefill = await service.checkRateLimit(key, config);
+      expect(afterRefill.allowed).toBe(true);
+    });
+
+    it('should apply user-specific adjustments in token bucket', async () => {
+      const config: any = {
+        tokenBucket: {
+          capacity: 2,
+          refillRate: 1,
+          refillIntervalMs: 100,
+          burstCapacity: 2,
+        } as TokenBucketRateLimitConfig,
+        userAdjustments: [
+          { userId: 99, multiplier: 2, maxOverride: 4 } as UserRateLimitAdjustment,
+        ],
+      };
+      const key = 'user:tb:adj';
+      for (let i = 0; i < 4; i++) {
+        const result = await service.checkRateLimit(key, config, 99);
+        expect(result.allowed).toBe(true);
+      }
+      const result = await service.checkRateLimit(key, config, 99);
+      expect(result.allowed).toBe(false);
     });
   });
 });
