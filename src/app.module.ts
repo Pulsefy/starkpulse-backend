@@ -5,6 +5,10 @@ import {
   RequestMethod,
 } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { BullModule } from '@nestjs/bull';
+
+
+
 // Change the import
 import { CacheWarmupModule } from './common/cache/cache.module';
 import { DatabaseModule } from './database/database.module';
@@ -38,6 +42,7 @@ import { RateLimitMiddleware } from './common/middleware/rate-limit.middleware';
 import { RateLimitGuard } from './common/guards/rate-limit.guard';
 import { RateLimitLoggingInterceptor } from './common/interceptors/rate-limit-logging.interceptor';
 import { MonitoringModule } from './monitoring/monitoring.module';
+import { EventProcessingModule } from './event-processing/event-processing.module';
 
 @Module({
   imports: [
@@ -46,6 +51,17 @@ import { MonitoringModule } from './monitoring/monitoring.module';
       cache: true,
       envFilePath: '.env',
     }),
+    BullModule.forRoot({
+      redis: {
+        host: process.env.REDIS_HOST,
+        port: parseInt(`${process.env.REDIS_PORT}`),
+      },
+    }),
+    BullModule.registerQueue(
+      { name: 'event-queue' },
+      { name: 'dead-letter-queue' }
+    ),
+    EventProcessingModule,
     CacheWarmupModule, // Fixed: Changed from CustomCacheModule to CacheWarmupModule
     ScheduleModule.forRoot(),
     EventEmitterModule.forRoot(),
