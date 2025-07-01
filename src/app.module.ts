@@ -15,6 +15,7 @@ import { DatabaseModule } from './database/database.module';
 import { HealthModule } from './health/health.module';
 import { AuthModule } from './auth/auth.module';
 import { BlockchainModule } from './blockchain/blockchain.module';
+import { DataPipelineModule } from './data-pipeline/data-pipeline.module';
 import { RequestLoggerMiddleware } from './common/middleware/request-logger.middleware';
 import { SecurityHeadersMiddleware } from './common/middleware/security-headers.middleware';
 import { CsrfMiddleware } from './common/middleware/csrf.middleware';
@@ -62,7 +63,7 @@ import { EventProcessingModule } from './event-processing/event-processing.modul
       { name: 'dead-letter-queue' }
     ),
     EventProcessingModule,
-    CacheWarmupModule, // Fixed: Changed from CustomCacheModule to CacheWarmupModule
+    CacheWarmupModule, 
     ScheduleModule.forRoot(),
     EventEmitterModule.forRoot(),
     CacheModule.register({
@@ -75,7 +76,7 @@ import { EventProcessingModule } from './event-processing/event-processing.modul
       },
     ]),
     RateLimitModule.forRoot(),
-    CacheWarmupModule, // Use the renamed module
+    CacheWarmupModule, 
   ],
   providers: [
     {
@@ -96,6 +97,7 @@ import { EventProcessingModule } from './event-processing/event-processing.modul
     PreferencesModule,
     SessionModule,
     PortfolioModule,
+    DataPipelineModule,
     AnalyticsModule,
     BlockchainModule,
     PriceModule,
