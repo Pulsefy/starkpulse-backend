@@ -10,6 +10,7 @@ import { RateLimitLoggingInterceptor } from '../interceptors/rate-limit-logging.
 import { MemoryRateLimitStore } from '../stores/memory-rate-limit.store';
 import { RedisRateLimitStore } from '../stores/redis-rate-limit.store';
 import { SlidingWindowRateLimitStore } from '../stores/sliding-window-rate-limit.store';
+import { TokenBucketRateLimitStore } from '../stores/token-bucket-rate-limit.store';
 import { RateLimitStore } from '../stores/rate-limit-store.interface';
 
 @Module({})
@@ -25,6 +26,8 @@ export class RateLimitModule {
             const storeType = configService.get<string>('rateLimit.store.type');
             
             switch (storeType) {
+              case 'token-bucket':
+                return new TokenBucketRateLimitStore(cache);
               case 'redis':
                 return new RedisRateLimitStore(cache); 
               case 'sliding-window':

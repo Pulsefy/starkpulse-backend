@@ -9,6 +9,8 @@ export interface RateLimitConfig {
   statusCode?: number;
   headers?: boolean;
   draft_polli_ratelimit_headers?: boolean;
+  tokenBucket?: TokenBucketRateLimitConfig;
+  userAdjustments?: UserRateLimitAdjustment[];
 }
 
 export interface RateLimitResult {
@@ -49,4 +51,18 @@ export interface TrustedUserConfig {
   bypassFactor: number;
   trustedRoles: string[];
   trustedIps: string[];
+}
+
+export interface TokenBucketRateLimitConfig {
+  capacity: number;
+  refillRate: number;
+  refillIntervalMs: number;
+  burstCapacity?: number;
+  adaptive?: boolean;
+}
+
+export interface UserRateLimitAdjustment {
+  userId: number;
+  multiplier: number;
+  maxOverride?: number;
 }
