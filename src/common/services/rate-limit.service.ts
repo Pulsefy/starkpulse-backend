@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { MemoryRateLimitStore } from '../stores/memory-rate-limit.store';
+import { TokenBucketRateLimitStore } from '../stores/token-bucket-rate-limit.store';
 import {
   RateLimitConfig,
   RateLimitResult,
@@ -20,7 +21,7 @@ export class RateLimitService {
   constructor(
     private readonly configService: ConfigService,
     private readonly trustedUserService: TrustedUserService,
-    private readonly store: MemoryRateLimitStore,
+    private readonly store: any,
   ) {
     this.adaptiveConfig = this.configService.get<AdaptiveRateLimitConfig>(
       'rateLimit.adaptive',
@@ -56,7 +57,7 @@ export class RateLimitService {
       );
 
       let effectiveLimit = config.max;
-
+      let userAdjustments = config.userAdjustments || [];
       if (isTrusted) {
         const trustedConfig = this.configService.get<TrustedUserConfig>(
           'rateLimit.trusted',
@@ -73,6 +74,22 @@ export class RateLimitService {
         effectiveLimit = Math.floor(
           effectiveLimit * this.getCurrentMultiplier(),
         );
+      }
+
+      if (config.tokenBucket && this.store.hitTokenBucket) {
+        const result = await this.store.hitTokenBucket(
+          key,
+          config.tokenBucket,
+          userId,
+          userAdjustments,
+        );
+        if (!result.allowed) {
+          this.logger.warn(
+            `Token bucket rate limit exceeded for key: ${key}, limit: ${config.tokenBucket.capacity}, ` +
+              `tokens: ${result.remaining}`,
+          );
+        }
+        return result;
       }
 
       const result = await this.store.hit(key, config.windowMs, effectiveLimit);
