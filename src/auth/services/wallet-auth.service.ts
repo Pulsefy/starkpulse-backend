@@ -3,21 +3,29 @@ import { JwtService } from '@nestjs/jwt';
 import { Provider, hash, ec, encode, number } from 'starknet';
 import { ConfigService } from '../../config/config.service';
 import { UsersService } from '../../users/users.service';
+import { RedisService } from '../../common/module/redis/redis.service';
+import { LoggingService } from '../../common/services/logging.service';
+import { SecurityAuditService } from '../../common/security/services/security-audit.service';
+import { SecurityEventType, SecurityEventSeverity } from '../../common/security/entities/security-event.entity';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class WalletAuthService {
-  private nonceStore: Map<string, { nonce: string; timestamp: number }> =
-    new Map();
   private readonly NONCE_EXPIRATION = 5 * 60 * 1000; // 5 minutes
+  private readonly RATE_LIMIT_EXPIRATION = 15 * 60 * 1000; // 15 minutes
+  private readonly BLACKLIST_EXPIRATION = 24 * 60 * 60 * 1000; // 24 hours
   private readonly MAX_ATTEMPTS = 3;
-  private attemptCounter: Map<string, { count: number; lastAttempt: number }> =
-    new Map();
 
   constructor(
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly usersService: UsersService,
-  ) {}
+    private readonly redisService: RedisService,
+    private readonly loggingService: LoggingService,
+    private readonly securityAuditService: SecurityAuditService,
+  ) {
+    this.loggingService.setContext('WalletAuthService');
+  }
 
   /**
    * Checks if Argent X wallet is available in the browser
@@ -63,41 +71,42 @@ export class WalletAuthService {
    * @returns Generated nonce
    */
   async generateNonce(address: string): Promise<string> {
-    // Rate limiting
-    const attempts = this.attemptCounter.get(address) || {
-      count: 0,
-      lastAttempt: 0,
-    };
+    // Rate limiting using Redis
+    const rateLimitKey = `rate-limit:nonce:${address}`;
+    const attemptsData = await this.redisService.get(rateLimitKey);
+    let attempts = attemptsData ? JSON.parse(attemptsData) : { count: 0, lastAttempt: 0 };
     const now = Date.now();
 
     // Reset attempts if last attempt was more than 15 minutes ago
-    if (now - attempts.lastAttempt > 15 * 60 * 1000) {
-      attempts.count = 0;
+    if (now - attempts.lastAttempt > this.RATE_LIMIT_EXPIRATION) {
+      attempts = { count: 0, lastAttempt: 0 };
     }
 
     if (attempts.count >= this.MAX_ATTEMPTS) {
-      throw new UnauthorizedException(
-        'Too many attempts. Please try again later.',
+      this.loggingService.warn(`Rate limit exceeded for wallet address: ${address}`, { attempts: attempts.count });
+      await this.securityAuditService.logSecurityEvent(
+        SecurityEventType.RATE_LIMIT_EXCEEDED,
+        { metadata: { walletAddress: address, attempts: attempts.count } },
+        SecurityEventSeverity.MEDIUM
       );
+      throw new UnauthorizedException('Too many attempts. Please try again later.');
     }
 
-    // Update attempts
-    this.attemptCounter.set(address, {
-      count: attempts.count + 1,
-      lastAttempt: now,
-    });
+    // Update attempts in Redis
+    attempts = { count: attempts.count + 1, lastAttempt: now };
+    await this.redisService.set(rateLimitKey, JSON.stringify(attempts), this.RATE_LIMIT_EXPIRATION / 1000);
 
+    // Generate a cryptographically secure nonce
+    const nonce = crypto.randomBytes(32).toString('hex');
     const timestamp = Date.now();
-    const message = `StarkPulse Authentication\nNonce: ${timestamp}\nAddress: ${address}`;
-    const messageHash = hash.getSelectorFromName(message);
 
-    // Store nonce with timestamp
-    this.nonceStore.set(address, {
-      nonce: messageHash.toString(),
-      timestamp,
-    });
+    // Store nonce with timestamp in Redis
+    const nonceKey = `nonce:${address}:${nonce}`;
+    await this.redisService.set(nonceKey, JSON.stringify({ nonce, timestamp }), this.NONCE_EXPIRATION / 1000);
 
-    return messageHash.toString();
+    this.loggingService.log(`Generated nonce for wallet address: ${address}`, { nonce, timestamp });
+
+    return nonce;
   }
 
   /**
@@ -112,15 +121,41 @@ export class WalletAuthService {
     signature: string[],
     nonce: string,
   ): Promise<boolean> {
-    // Check if nonce exists and hasn't expired
-    const storedNonce = this.nonceStore.get(address);
-    if (!storedNonce || storedNonce.nonce !== nonce) {
+    // Check if nonce is blacklisted
+    const blacklistKey = `blacklist:nonce:${address}:${nonce}`;
+    const isBlacklisted = await this.redisService.get(blacklistKey);
+    if (isBlacklisted) {
+      this.loggingService.warn(`Attempt to reuse blacklisted nonce for wallet address: ${address}`, { nonce });
+      await this.securityAuditService.logSecurityEvent(
+        SecurityEventType.UNAUTHORIZED_ACCESS,
+        { metadata: { walletAddress: address, nonce, issue: 'Nonce reused' } },
+        SecurityEventSeverity.HIGH
+      );
+      throw new UnauthorizedException('Nonce has already been used');
+    }
+
+    // Check if nonce exists in Redis
+    const nonceKey = `nonce:${address}:${nonce}`;
+    const storedNonceData = await this.redisService.get(nonceKey);
+    if (!storedNonceData) {
+      this.loggingService.warn(`Invalid or expired nonce for wallet address: ${address}`, { nonce });
+      await this.securityAuditService.logSecurityEvent(
+        SecurityEventType.UNAUTHORIZED_ACCESS,
+        { metadata: { walletAddress: address, nonce, issue: 'Nonce invalid or expired' } },
+        SecurityEventSeverity.MEDIUM
+      );
       throw new UnauthorizedException('Invalid or expired nonce');
     }
 
-    if (Date.now() - storedNonce.timestamp > this.NONCE_EXPIRATION) {
-      this.nonceStore.delete(address);
-      throw new UnauthorizedException('Nonce has expired');
+    const storedNonce = JSON.parse(storedNonceData);
+    if (storedNonce.nonce !== nonce) {
+      this.loggingService.warn(`Invalid nonce value for wallet address: ${address}`, { nonce, storedNonce: storedNonce.nonce });
+      await this.securityAuditService.logSecurityEvent(
+        SecurityEventType.UNAUTHORIZED_ACCESS,
+        { metadata: { walletAddress: address, nonce, storedNonce: storedNonce.nonce, issue: 'Nonce mismatch' } },
+        SecurityEventSeverity.MEDIUM
+      );
+      throw new UnauthorizedException('Invalid nonce');
     }
 
     try {
@@ -131,7 +166,9 @@ export class WalletAuthService {
       });
 
       // Convert the nonce to a message hash
-      const message = `StarkPulse Authentication\nAddress: ${address}\nNonce: ${nonce}`;
+      const message = `StarkPulse Authentication
+Address: ${address}
+Nonce: ${nonce}`;
       const messageHashBytes = hash.getSelectorFromName(message);
       const messageHash = encode.addHexPrefix(number.toHex(messageHashBytes));
 
@@ -148,12 +185,31 @@ export class WalletAuthService {
       });
 
       if (isValid) {
-        this.nonceStore.delete(address);
-        this.attemptCounter.delete(address);
+        // Blacklist the nonce after successful verification
+        await this.redisService.set(blacklistKey, 'true', this.BLACKLIST_EXPIRATION / 1000);
+        // Remove the nonce from active storage
+        await this.redisService.delete(nonceKey);
+        // Reset rate limit counter
+        const rateLimitKey = `rate-limit:nonce:${address}`;
+        await this.redisService.delete(rateLimitKey);
+        this.loggingService.log(`Successful signature verification for wallet address: ${address}`, { nonce });
+      } else {
+        this.loggingService.warn(`Signature verification failed for wallet address: ${address}`, { nonce });
+        await this.securityAuditService.logSecurityEvent(
+          SecurityEventType.LOGIN_FAILURE,
+          { metadata: { walletAddress: address, nonce, issue: 'Invalid signature' } },
+          SecurityEventSeverity.HIGH
+        );
       }
 
       return Boolean(isValid);
     } catch (error) {
+      this.loggingService.error(`Signature verification error for wallet address: ${address}`, error, { nonce });
+      await this.securityAuditService.logSecurityEvent(
+        SecurityEventType.SUSPICIOUS_ACTIVITY,
+        { metadata: { walletAddress: address, nonce, error: error.message, issue: 'Signature verification error' } },
+        SecurityEventSeverity.CRITICAL
+      );
       console.error('Signature verification failed:', error);
       return false;
     }
