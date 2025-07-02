@@ -8,11 +8,13 @@ import { WalletAuthService } from './services/wallet-auth.service';
 import { WalletAuthController } from './controllers/wallet-auth.controller';
 import { WalletAuthGuard } from './guards/wallet-auth.guard';
 import { ConfigService } from '../config/config.service';
+import { RedisModule } from '../common/module/redis/redis.module';
 
 @Module({
   imports: [
     ConfigModule,
     UsersModule,
+    RedisModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
