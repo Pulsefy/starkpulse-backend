@@ -13,7 +13,7 @@ import * as crypto from 'crypto';
 export class WalletAuthService {
   private readonly NONCE_EXPIRATION = 5 * 60 * 1000; // 5 minutes
   private readonly RATE_LIMIT_EXPIRATION = 15 * 60 * 1000; // 15 minutes
-  private readonly BLACKLIST_EXPIRATION = 24 * 60 * 60 * 1000; // 24 hours
+  private readonly BLACKLIST_EXPIRATION = 24 * 60 * 60 * 1000; // 24 hours (1 day)
   private readonly MAX_ATTEMPTS = 3;
 
   constructor(
