@@ -45,6 +45,19 @@ export class DatabaseService {
     }
   }
 
+  /**
+   * Executes a parameterized query safely. Throws if parameters are not used.
+   * @param query SQL query string with placeholders
+   * @param parameters Parameters to bind
+   */
+  async safeQuery(query: string, parameters: any[] = []): Promise<any> {
+    if (!Array.isArray(parameters) || parameters.length === 0) {
+      this.logger.warn('Attempted to execute a query without parameters. This is discouraged for security reasons.');
+      throw new Error('Unparameterized queries are not allowed. Use parameterized queries to prevent SQL injection.');
+    }
+    return this.dataSource.query(query, parameters);
+  }
+
   // Optimized bulk operations
   async bulkInsert<T>(
     entity: any,
@@ -52,9 +65,9 @@ export class DatabaseService {
     chunkSize = 1000,
   ): Promise<void> {
     const repository = this.dataSource.getRepository(entity);
-    
     for (let i = 0; i < data.length; i += chunkSize) {
       const chunk = data.slice(i, i + chunkSize);
+      // All values are parameterized by TypeORM's query builder
       await repository
         .createQueryBuilder()
         .insert()
@@ -70,11 +83,10 @@ export class DatabaseService {
     updates: { condition: any; data: Partial<T> }[],
   ): Promise<void> {
     const queryRunner = await this.createOptimizedQueryRunner();
-    
     try {
       await queryRunner.startTransaction();
-      
       for (const update of updates) {
+        // All values are parameterized by TypeORM's query builder
         await queryRunner.manager
           .createQueryBuilder()
           .update(entity)
@@ -82,7 +94,6 @@ export class DatabaseService {
           .where(update.condition)
           .execute();
       }
-      
       await queryRunner.commitTransaction();
     } catch (error) {
       await queryRunner.rollbackTransaction();

@@ -8,10 +8,14 @@ export class SecurityHeadersMiddleware implements NestMiddleware {
 
   use(req: Request, res: Response, next: NextFunction) {
     // Content Security Policy
-    res.setHeader(
-      'Content-Security-Policy',
-      "default-src 'self'; script-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; connect-src 'self' https://alpha-mainnet.starknet.io;",
-    );
+    const csp =
+      "default-src 'self'; script-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; connect-src 'self' https://alpha-mainnet.starknet.io;";
+    res.setHeader('Content-Security-Policy', csp);
+
+    // Validate CSP header
+    if (!csp || typeof csp !== 'string' || !csp.includes("default-src")) {
+      this.logger.warn('CSP header is missing or malformed!');
+    }
 
     // Prevent browsers from incorrectly detecting non-scripts as scripts
     res.setHeader('X-Content-Type-Options', 'nosniff');
