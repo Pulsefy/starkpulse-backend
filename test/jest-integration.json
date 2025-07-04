@@ -2,12 +2,12 @@
   "moduleFileExtensions": ["js", "json", "ts"],
   "rootDir": ".",
   "testEnvironment": "node",
-  "testRegex": ".e2e-spec.ts$",
+  "testRegex": ".integration-spec.ts$",
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"
   },
   "setupFilesAfterEnv": ["<rootDir>/setup/jest.setup.ts"],
-  "testTimeout": 120000,
+  "testTimeout": 60000,
   "moduleNameMapping": {
     "^@/(.*)$": "<rootDir>/../src/$1",
     "^@test/(.*)$": "<rootDir>/$1"
@@ -15,8 +15,8 @@
   "collectCoverageFrom": [
     "../src/**/*.(t|j)s",
     "!../src/**/*.spec.ts",
-    "!../src/**/*.integration-spec.ts",
+    "!../src/**/*.e2e-spec.ts",
     "!../src/**/*.d.ts"
   ],
-  "coverageDirectory": "../coverage/e2e"
+  "coverageDirectory": "../coverage/integration"
 }
