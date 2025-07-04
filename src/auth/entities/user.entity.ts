@@ -14,6 +14,18 @@ import { PortfolioAsset } from '../../portfolio/entities/portfolio-asset.entity'
 
 @Entity('users')
 export class User {
+  // GDPR/Privacy fields
+  @Column({ default: false })
+  dataErasureRequested: boolean;
+
+  @Column({ type: 'json', nullable: true })
+  consent: Record<string, boolean>;
+
+  @Column({ type: 'timestamp', nullable: true })
+  scheduledDeletionAt?: Date;
+  // Data export request timestamp
+  @Column({ type: 'timestamp', nullable: true })
+  lastDataExportRequestedAt?: Date;
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
