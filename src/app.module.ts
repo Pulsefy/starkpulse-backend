@@ -34,6 +34,7 @@ import { NewsModule } from './news/news.module';
 import { MarketDataModule } from './market-data/market-data.module';
 import { CacheWarmupService } from './common/cache/cache-warmup.service';
 import { SecurityModule } from './common/security/security.module';
+import { PrivacyModule } from './privacy/privacy.module';
 import { CacheModule } from '@nestjs/cache-manager';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
@@ -110,6 +111,8 @@ import { EventProcessingModule } from './event-processing/event-processing.modul
     SecurityModule,
     MonitoringModule,
     CacheWarmupService,
+    // GDPR/Privacy
+    PrivacyModule,
     // Remove CacheWarmupService from here since it's now provided by CacheWarmupModule
   ],
 })
