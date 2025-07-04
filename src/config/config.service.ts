@@ -82,6 +82,14 @@ export class ConfigService {
     return config;
   }
 
+  get backupConfig() {
+    const config = this.configService.get('backup');
+    if (!config) {
+      throw new Error('Backup configuration is missing');
+    }
+    return config;
+  }
+
   get<T>(key: keyof AppConfig): T {
     const value = this.configService.get<T>(key);
     if (value === undefined) {
