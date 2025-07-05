@@ -31,6 +31,12 @@ export interface StarknetConfig {
   pollingIntervalMs: number;
 }
 
+export interface BackupConfig {
+  backupDir: string;
+  retentionDays: number;
+  encryptionKey: string;
+}
+
 export interface AppConfig {
   environment: string;
   port: number;
@@ -38,5 +44,6 @@ export interface AppConfig {
   jwt: JwtConfig;
   crypto: CryptoConfig;
   starknet: StarknetConfig;
+  backup?: BackupConfig;
   LOG_LEVEL?: string;
 }
