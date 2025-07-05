@@ -19,7 +19,18 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:ci": "jest --ci --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "test:e2e:watch": "jest --config ./test/jest-e2e.json --watch",
+    "test:integration": "jest --config ./test/jest-integration.json",
+    "test:performance": "k6 run test/performance/k6-load-test.js",
+    "test:load": "artillery run test/performance/artillery-load-test.yml",
+    "test:generate-data": "ts-node test/fixtures/data-generator.ts",
+    "test:db:setup": "ts-node test/setup/database-setup.ts",
+    "test:db:teardown": "ts-node test/setup/database-teardown.ts",
+    "test:coverage:report": "jest --coverage && npx nyc report --reporter=html",
+    "test:all": "npm run test && npm run test:integration && npm run test:e2e",
+    "test:report": "node scripts/generate-test-report.js",
+    "test:summary": "npm run test:coverage && npm run test:report"
   },
   "dependencies": {
     "@nestjs-modules/ioredis": "^2.0.2",
@@ -105,6 +116,13 @@
     "@types/supertest": "^6.0.2",
     "@types/twilio": "^3.19.2",
     "@types/winston": "^2.4.4",
+    "@faker-js/faker": "^8.4.1",
+    "artillery": "^2.0.0",
+    "k6": "^0.0.0",
+    "nock": "^13.5.0",
+    "testcontainers": "^10.7.1",
+    "@testcontainers/postgresql": "^10.7.1",
+    "@testcontainers/redis": "^10.7.1",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-prettier": "^5.2.2",
@@ -135,6 +153,28 @@
       "**/*.(t|j)s"
     ],
     "coverageDirectory": "../coverage",
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "coverageReporters": [
+      "text",
+      "lcov",
+      "html",
+      "json"
+    ],
+    "coverageThreshold": {
+      "global": {
+        "branches": 90,
+        "functions": 90,
+        "lines": 90,
+        "statements": 90
+      }
+    },
+    "setupFilesAfterEnv": [
+      "<rootDir>/../test/setup/jest.setup.ts"
+    ],
+    "testTimeout": 30000,
+    "moduleNameMapping": {
+      "^@/(.*)$": "<rootDir>/$1",
+      "^@test/(.*)$": "<rootDir>/../test/$1"
+    }
   }
 }

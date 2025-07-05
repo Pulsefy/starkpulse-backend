@@ -1,0 +1,194 @@
+config:
+  target: 'http://localhost:3000'
+  phases:
+    - duration: 60
+      arrivalRate: 5
+      name: 'Warm up'
+    - duration: 120
+      arrivalRate: 10
+      name: 'Ramp up load'
+    - duration: 300
+      arrivalRate: 20
+      name: 'Sustained load'
+    - duration: 120
+      arrivalRate: 40
+      name: 'Spike test'
+    - duration: 60
+      arrivalRate: 5
+      name: 'Cool down'
+  environments:
+    development:
+      target: 'http://localhost:3000'
+    staging:
+      target: 'https://staging-api.starkpulse.com'
+    production:
+      target: 'https://api.starkpulse.com'
+
+scenarios:
+  # Portfolio management scenario
+  - name: 'Portfolio Operations'
+    weight: 40
+    flow:
+      - get:
+          url: '/portfolio/{{ $randomItem(walletAddresses) }}'
+          headers:
+            Authorization: 'Bearer {{ $randomItem(userIds) }}'
+          capture:
+            - json: '$.totalValueUsd'
+              as: 'portfolioValue'
+          expect:
+            - statusCode: 200
+            - contentType: json
+            - hasProperty: 'totalValueUsd'
+      - get:
+          url: '/portfolio/{{ $randomItem(walletAddresses) }}/assets'
+          headers:
+            Authorization: 'Bearer {{ $randomItem(userIds) }}'
+          expect:
+            - statusCode: 200
+            - responseTime: < 500ms
+      - get:
+          url: '/analytics/portfolio/{{ $randomItem(walletAddresses) }}'
+          headers:
+            Authorization: 'Bearer {{ $randomItem(userIds) }}'
+          expect:
+            - statusCode: 200
+            - responseTime: < 1000ms
+
+  # Transaction monitoring scenario
+  - name: 'Transaction Operations'
+    weight: 30
+    flow:
+      - get:
+          url: '/transactions'
+          qs:
+            page: '{{ $randomInt(1, 5) }}'
+            limit: '20'
+            status: "{{ $randomItem(['confirmed', 'pending', 'failed']) }}"
+          headers:
+            Authorization: 'Bearer {{ $randomItem(userIds) }}'
+          expect:
+            - statusCode: 200
+            - hasHeader: 'x-total-count'
+      - get:
+          url: '/transactions/analytics'
+          headers:
+            Authorization: 'Bearer {{ $randomItem(userIds) }}'
+          expect:
+            - statusCode: 200
+            - contentType: json
+      - post:
+          url: '/transactions/monitor'
+          headers:
+            Authorization: 'Bearer {{ $randomItem(userIds) }}'
+            Content-Type: 'application/json'
+          json:
+            transactionHash: "0x{{ $randomString(64, 'hex') }}"
+          expect:
+            - statusCode: [201, 409] # 201 for new, 409 for duplicate
+
+  # Notification system scenario
+  - name: 'Notification Operations'
+    weight: 20
+    flow:
+      - get:
+          url: '/notifications'
+          qs:
+            read: "{{ $randomItem(['true', 'false']) }}"
+            page: '1'
+            limit: '50'
+          headers:
+            Authorization: 'Bearer {{ $randomItem(userIds) }}'
+          capture:
+            - json: '$[0].id'
+              as: 'notificationId'
+          expect:
+            - statusCode: 200
+      - put:
+          url: '/notifications/{{ notificationId }}/read'
+          headers:
+            Authorization: 'Bearer {{ $randomItem(userIds) }}'
+          expect:
+            - statusCode: [200, 404]
+      - post:
+          url: '/notifications/preferences'
+          headers:
+            Authorization: 'Bearer {{ $randomItem(userIds) }}'
+            Content-Type: 'application/json'
+          json:
+            email: '{{ $randomItem([true, false]) }}'
+            push: '{{ $randomItem([true, false]) }}'
+            sms: '{{ $randomItem([true, false]) }}'
+            inApp: true
+          expect:
+            - statusCode: [200, 201]
+
+  # Market data scenario
+  - name: 'Market Data Operations'
+    weight: 10
+    flow:
+      - get:
+          url: '/market/prices'
+          qs:
+            symbols: 'ETH,STRK,USDC'
+          expect:
+            - statusCode: 200
+            - responseTime: < 300ms
+      - get:
+          url: '/market/trending'
+          expect:
+            - statusCode: 200
+      - get:
+          url: '/market/news'
+          qs:
+            limit: '10'
+          expect:
+            - statusCode: 200
+
+# Test data
+payload:
+  path: './test-data.csv'
+  fields:
+    - userIds
+    - walletAddresses
+  order: sequence
+  skipHeader: true
+
+# Performance expectations
+expect:
+  - statusCode: 200
+  - responseTime: < 1000ms
+
+# Reporting
+output:
+  - type: json
+    path: './artillery-report.json'
+  - type: html
+    path: './artillery-report.html'
+
+# Metrics collection
+metrics:
+  - name: 'response_time_95'
+    unit: 'ms'
+  - name: 'error_rate'
+    unit: 'percent'
+  - name: 'throughput'
+    unit: 'rps'
+
+# Monitoring and alerting
+monitor:
+  - metric: 'response.time.p95'
+    threshold: 1000
+    action: 'alert'
+  - metric: 'errors.rate'
+    threshold: 5
+    action: 'stop'
+
+# Resource monitoring
+resources:
+  cpu:
+    max: 80
+  memory:
+    max: 85
+  connections:
+    max: 1000
