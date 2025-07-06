@@ -17,4 +17,9 @@ export class ConsentManagementService {
     // Placeholder for actual logic
     return true;
   }
+
+  getUserConsents(userId: string): string[] {
+    // Placeholder for actual logic
+    return [`Consent list for user ${userId}`];
+  }
 }
