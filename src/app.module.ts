@@ -45,6 +45,7 @@ import { RateLimitGuard } from './common/guards/rate-limit.guard';
 import { RateLimitLoggingInterceptor } from './common/interceptors/rate-limit-logging.interceptor';
 import { MonitoringModule } from './monitoring/monitoring.module';
 import { EventProcessingModule } from './event-processing/event-processing.module';
+import { EncryptionModule } from './encryption/encryption.module';
 
 @Module({
   imports: [
@@ -77,7 +78,8 @@ import { EventProcessingModule } from './event-processing/event-processing.modul
       },
     ]),
     RateLimitModule.forRoot(),
-    CacheWarmupModule, 
+    CacheWarmupModule,
+    EncryptionModule, 
   ],
   providers: [
     {
