@@ -46,6 +46,7 @@ import { RateLimitLoggingInterceptor } from './common/interceptors/rate-limit-lo
 import { MonitoringModule } from './monitoring/monitoring.module';
 import { EventProcessingModule } from './event-processing/event-processing.module';
 import { EncryptionModule } from './encryption/encryption.module';
+import { ApiSecurityModule } from './api-security/api-security.module';
 
 @Module({
   imports: [
@@ -80,6 +81,7 @@ import { EncryptionModule } from './encryption/encryption.module';
     RateLimitModule.forRoot(),
     CacheWarmupModule,
     EncryptionModule, 
+    ApiSecurityModule, 
   ],
   providers: [
     {
