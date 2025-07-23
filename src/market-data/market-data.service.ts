@@ -21,24 +21,54 @@ export class MarketDataService {
     private marketRepo: Repository<MarketData>,
   ) {}
 
+  /**
+   * Fetch and store market data from multiple providers (CoinGecko, Binance, etc.)
+   * For demo, only CoinGecko and a mock Binance endpoint are used.
+   */
   async fetchAndStoreMarketData(): Promise<void> {
+    const now = new Date();
+    const allEntries: any[] = [];
+    // CoinGecko
     try {
       const res = await axios.get(
         'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum&vs_currencies=usd',
       );
-
-      const now = new Date();
       const entries = Object.entries(res.data).map(([symbol, data]: any) => ({
         symbol: symbol.toUpperCase(),
         priceUsd: data.usd,
         timestamp: now,
       }));
-
-      await this.marketRepo.save(entries);
-      this.logger.log(`Stored ${entries.length} market entries`);
+      allEntries.push(...entries);
     } catch (err) {
-      this.logger.error('Failed to fetch market data', err);
+      this.logger.error('Failed to fetch CoinGecko data', err);
     }
+    // Binance (mocked for demo)
+    try {
+      // Replace with real Binance API call
+      const binanceData = {
+        BTC: { usd: 60000 + Math.random() * 1000 },
+        ETH: { usd: 3500 + Math.random() * 100 },
+      };
+      const entries = Object.entries(binanceData).map(
+        ([symbol, data]: any) => ({
+          symbol: symbol.toUpperCase(),
+          priceUsd: data.usd,
+          timestamp: now,
+        }),
+      );
+      allEntries.push(...entries);
+    } catch (err) {
+      this.logger.error('Failed to fetch Binance data', err);
+    }
+    // Merge and deduplicate by symbol, prefer CoinGecko
+    const unique = new Map();
+    for (const entry of allEntries) {
+      if (!unique.has(entry.symbol)) unique.set(entry.symbol, entry);
+    }
+    await this.marketRepo.save(Array.from(unique.values()));
+    this.logger.log(
+      `Stored ${unique.size} market entries from multiple providers`,
+    );
   }
 
   async getAllData(): Promise<MarketData[]> {
