@@ -47,6 +47,7 @@ import { MonitoringModule } from './monitoring/monitoring.module';
 import { EventProcessingModule } from './event-processing/event-processing.module';
 import { EncryptionModule } from './encryption/encryption.module';
 import { ApiSecurityModule } from './api-security/api-security.module';
+import { SecretsModule } from './secrets/secrets.module';
 
 @Module({
   imports: [
@@ -81,7 +82,7 @@ import { ApiSecurityModule } from './api-security/api-security.module';
     RateLimitModule.forRoot(),
     CacheWarmupModule,
     EncryptionModule, 
-    ApiSecurityModule, 
+    ApiSecurityModule, SecretsModule, 
   ],
   providers: [
     {
