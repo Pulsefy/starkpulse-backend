@@ -38,6 +38,12 @@ export class User {
   @Column()
   password: string;
 
+  @Column()
+  roles: string;
+
+  @Column({ type: 'enum', enum: ['free', 'pro', 'enterprise'], default: 'free' })
+  tier: string;
+
   @Column({ default: false })
   isVerified: boolean;
 

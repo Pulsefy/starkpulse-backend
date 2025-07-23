@@ -6,8 +6,11 @@ import { RequestEncryptionService } from './services/request-encryption.service'
 import { ApiSecurityMiddleware } from './middleware/api-security.middleware';
 import { ApiVersioningGuard } from './guards/api-versioning.guard';
 import { RateLimitGuard } from './guards/rate-limit-guard';
+import { AuthModule } from 'src/auth/auth.module';
+import { RateLimitModule } from 'src/common/module/rate-limit.module';
 
 @Module({
+  imports: [AuthModule, RateLimitModule],
   providers: [
     ApiSigningGuard,
     RateLimitGuard,
