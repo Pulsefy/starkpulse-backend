@@ -1,5 +1,14 @@
-import { Controller, Get, Param, NotFoundException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  NotFoundException,
+  Post,
+  Body,
+} from '@nestjs/common';
 import { AnalyticsService } from './analytics.service';
+import { PredictiveAnalyticsService } from './predictive-analytics.service';
+import { MarketData } from '../market-data/market-data.entity';
 import { AnalyticsResponseDto } from './dto/analytics-response.dto';
 import {
   ApiTags,
@@ -13,7 +22,23 @@ import {
 @ApiBearerAuth()
 @Controller('analytics')
 export class AnalyticsController {
-  constructor(private readonly analyticsService: AnalyticsService) {}
+  constructor(
+    private readonly analyticsService: AnalyticsService,
+    private readonly predictiveService: PredictiveAnalyticsService,
+  ) {}
+
+  @Post('forecast')
+  forecast(@Body() data: MarketData[]) {
+    return this.predictiveService.forecastMarketTrends(data);
+  }
+
+  @Post('backtest')
+  backtest(@Body() body: { strategy: any; historicalData: MarketData[] }) {
+    return this.predictiveService.backtestStrategy(
+      body.strategy,
+      body.historicalData,
+    );
+  }
 
   @Get(':userId')
   @ApiOperation({

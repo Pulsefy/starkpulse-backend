@@ -4,6 +4,8 @@ import { PortfolioAsset } from './entities/portfolio-asset.entity';
 import { PortfolioSnapshot } from './entities/portfolio-snapshot.entity';
 import { PortfolioService } from './services/portfolio.service';
 import { PortfolioAnalyticsService } from './services/portfolio-analytics.service';
+import { PortfolioReportService } from './portfolio-report.service';
+import { PortfolioRealtimeGateway } from './portfolio-realtime.gateway';
 import { PortfolioGateway } from './gateways/portfolio.gateway';
 import { PriceModule } from '../price/price.module';
 import { JwtModule } from '@nestjs/jwt';
@@ -27,7 +29,18 @@ import { BlockchainModule } from '../blockchain/blockchain.module';
     }),
   ],
   controllers: [PortfolioController, PortfolioAnalyticsController],
-  providers: [PortfolioService, PortfolioAnalyticsService, PortfolioGateway],
-  exports: [PortfolioService, PortfolioAnalyticsService],
+  providers: [
+    PortfolioService,
+    PortfolioAnalyticsService,
+    PortfolioGateway,
+    PortfolioReportService,
+    PortfolioRealtimeGateway,
+  ],
+  exports: [
+    PortfolioService,
+    PortfolioAnalyticsService,
+    PortfolioReportService,
+    PortfolioRealtimeGateway,
+  ],
 })
 export class PortfolioModule {}
