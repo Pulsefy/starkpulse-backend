@@ -22,6 +22,7 @@ import { NotificationStatus } from '../../notifications/enums/notificationStatus
 import { ComplianceRuleEngineService } from './compliance-rule-engine.service';
 import { SuspiciousActivityDetectionService } from './suspicious-activity-detection.service';
 import { RegulatoryReportingService } from './regulatory-reporting.service';
+import { BlockchainService } from '../../blockchain/blockchain.service';
 
 @Injectable()
 export class TransactionMonitorService implements OnModuleInit {
@@ -30,6 +31,11 @@ export class TransactionMonitorService implements OnModuleInit {
   private pollingInterval: NodeJS.Timeout;
   private readonly POLLING_INTERVAL = 15000; // 15 seconds
   private lastProcessedBlock = 0;
+  private providerMap: Record<string, any> = {};
+  private blockchainConfig = [
+    { name: 'starknet', providerUrl: this.configService.get<string>('STARKNET_PROVIDER_URL') },
+    // Add more blockchains here
+  ];
 
   constructor(
     @InjectRepository(Transaction)
@@ -50,10 +56,16 @@ export class TransactionMonitorService implements OnModuleInit {
     private readonly complianceRuleEngine: ComplianceRuleEngineService,
     private readonly suspiciousActivityDetection: SuspiciousActivityDetectionService,
     private readonly regulatoryReporting: RegulatoryReportingService,
+    private readonly blockchainService: BlockchainService,
   ) {
-    // Initialize StarkNet provider
-    const providerUrl = this.configService.get<string>('STARKNET_PROVIDER_URL');
-    this.provider = new RpcProvider({ nodeUrl: providerUrl });
+    // Initialize providers for each blockchain
+    for (const chain of this.blockchainConfig) {
+      if (chain.name === 'starknet') {
+        this.providerMap[chain.name] = new RpcProvider({ nodeUrl: chain.providerUrl });
+      }
+      // Add more blockchain providers as needed
+    }
+    this.provider = this.providerMap['starknet']; // Default
   }
 
   async onModuleInit() {
@@ -212,7 +224,7 @@ export class TransactionMonitorService implements OnModuleInit {
       }
 
       // Suspicious activity detection
-      const anomalies = this.suspiciousActivityDetection.detectAnomalies(transaction);
+      const anomalies = await this.suspiciousActivityDetection.detectAnomalies(transaction);
       if (anomalies.length > 0) {
         transaction.metadata.flaggedReasons = [
           ...(transaction.metadata.flaggedReasons || []),
