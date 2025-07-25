@@ -11,70 +11,65 @@ export class AnalyticsService {
     private readonly snapshotRepo: Repository<PortfolioSnapshot>,
   ) {}
 
-  async getUserAnalytics(userId: string): Promise<AnalyticsResponseDto | null> {
+  async getUserAnalytics(userId: string, skip = 0, take = 1000): Promise<AnalyticsResponseDto[] | null> {
     const snapshots = await this.snapshotRepo.find({
       where: { userId },
       order: { timestamp: 'ASC' },
+      skip,
+      take,
     });
 
     if (snapshots.length < 2) {
       return null;
     }
 
-    // Parse the first and last totalValueUsd as floats
-    const initialValue = parseFloat(snapshots[0].totalValueUsd);
-    const latestValue = parseFloat(
-      snapshots[snapshots.length - 1].totalValueUsd,
-    );
-    // ROI % = (latest – initial) / initial * 100
-    const roiPct = ((latestValue - initialValue) / initialValue) * 100;
-
-    // Build daily returns array: (today – yesterday) / yesterday
-    const dailyReturns: number[] = [];
-    for (let i = 1; i < snapshots.length; i++) {
-      const prevValue = parseFloat(snapshots[i - 1].totalValueUsd);
-      const currValue = parseFloat(snapshots[i].totalValueUsd);
-      if (prevValue > 0) {
-        dailyReturns.push((currValue - prevValue) / prevValue);
-      }
+    // Group snapshots by chain
+    const chainGroups: Record<string, typeof snapshots> = {};
+    for (const snap of snapshots) {
+      if (!chainGroups[snap.chain]) chainGroups[snap.chain] = [];
+      chainGroups[snap.chain].push(snap);
     }
 
-    // Compute average daily return
-    const avgDailyReturn =
-      dailyReturns.reduce((sum, r) => sum + r, 0) / dailyReturns.length;
-
-    // Compute daily standard deviation, then annualize (×√252) and convert to percentage
-    const variance =
-      dailyReturns.reduce(
-        (acc, r) => acc + Math.pow(r - avgDailyReturn, 2),
-        0,
-      ) / dailyReturns.length;
-    const dailyStdDev = Math.sqrt(variance);
-    const annualizedVolatilityPct = dailyStdDev * Math.sqrt(252) * 100;
-
-    // Compute short-term percent changes:
-    const dailyChange = this.computePercentChange(snapshots, 1);
-    const weeklyChange = this.computePercentChange(snapshots, 7);
-    const monthlyChange = this.computePercentChange(snapshots, 30);
-
-    // Build the final response DTO
-    const response: AnalyticsResponseDto = {
-      roi: roiPct.toFixed(2),
-      volatility: annualizedVolatilityPct.toFixed(2),
-      dailyChange,
-      weeklyChange,
-      monthlyChange,
-      // Return the raw snapshots as an array of plain objects
-      snapshots: snapshots.map((s) => ({
-        id: s.id,
-        userId: s.userId,
-        totalValueUsd: s.totalValueUsd,
-        assetBreakdown: s.assetBreakdown,
-        timestamp: s.timestamp,
-      })),
-    };
-
-    return response;
+    // Compute analytics for each chain
+    const results: AnalyticsResponseDto[] = [];
+    for (const chain of Object.keys(chainGroups)) {
+      const chainSnaps = chainGroups[chain];
+      if (chainSnaps.length < 2) continue;
+      const initialValue = parseFloat(chainSnaps[0].totalValueUsd);
+      const latestValue = parseFloat(chainSnaps[chainSnaps.length - 1].totalValueUsd);
+      const roiPct = ((latestValue - initialValue) / initialValue) * 100;
+      const dailyReturns: number[] = [];
+      for (let i = 1; i < chainSnaps.length; i++) {
+        const prevValue = parseFloat(chainSnaps[i - 1].totalValueUsd);
+        const currValue = parseFloat(chainSnaps[i].totalValueUsd);
+        if (prevValue > 0) {
+          dailyReturns.push((currValue - prevValue) / prevValue);
+        }
+      }
+      const avgDailyReturn = dailyReturns.reduce((sum, r) => sum + r, 0) / dailyReturns.length;
+      const variance = dailyReturns.reduce((acc, r) => acc + Math.pow(r - avgDailyReturn, 2), 0) / dailyReturns.length;
+      const dailyStdDev = Math.sqrt(variance);
+      const annualizedVolatilityPct = dailyStdDev * Math.sqrt(252) * 100;
+      const dailyChange = this.computePercentChange(chainSnaps, 1);
+      const weeklyChange = this.computePercentChange(chainSnaps, 7);
+      const monthlyChange = this.computePercentChange(chainSnaps, 30);
+      results.push({
+        roi: roiPct.toFixed(2),
+        volatility: annualizedVolatilityPct.toFixed(2),
+        dailyChange,
+        weeklyChange,
+        monthlyChange,
+        snapshots: chainSnaps.map((s) => ({
+          id: s.id,
+          userId: s.userId,
+          totalValueUsd: s.totalValueUsd,
+          assetBreakdown: s.assetBreakdown,
+          timestamp: s.timestamp,
+        })),
+        chain,
+      } as any);
+    }
+    return results.length ? results : null;
   }
 
   /**
