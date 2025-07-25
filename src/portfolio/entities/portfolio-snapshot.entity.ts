@@ -1,7 +1,11 @@
 import { User } from '../../auth/entities/user.entity';
-import { Column, Entity, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import { Chain } from '../../blockchain/enums/chain.enum';
+import { Column, Entity, ManyToOne, PrimaryGeneratedColumn, Index } from 'typeorm';
 
 @Entity({ name: 'portfolio_snapshot' })
+@Index(['chain'])
+@Index(['userId'])
+@Index(['timestamp'])
 export class PortfolioSnapshot {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -11,6 +15,9 @@ export class PortfolioSnapshot {
 
   @Column()
   userId: string;
+
+  @Column({ type: 'enum', enum: Chain })
+  chain: Chain;
 
   @Column({ type: 'decimal', precision: 30, scale: 2, default: '0' })
   totalValueUsd: string;

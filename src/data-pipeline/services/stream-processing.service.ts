@@ -12,10 +12,11 @@ export class StreamProcessingService {
   ) {}
 
   // Stream processing with Kafka
+  // Handles multi-chain, normalized blockchain data
   async processStream(message: any): Promise<void> {
-    // 1. Transform and enrich
+    // 1. Transform and enrich (ensures normalization, chain field, etc.)
     const transformed = await this.transformation.transform(message);
-    // 2. Validate and cleanse
+    // 2. Validate and cleanse (checks for chain, etc.)
     const validation = await this.validation.validate(transformed);
     // 3. Track lineage
     await this.lineage.trackLineage(validation.cleansed, 'stream');

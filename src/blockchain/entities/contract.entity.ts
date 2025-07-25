@@ -5,10 +5,14 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToMany,
+  Index,
 } from 'typeorm';
 import { EventEntity } from './event.entity';
+import { Chain } from '../enums/chain.enum';
 
 @Entity('contracts')
+@Index(['chain'])
+@Index(['address'])
 export class ContractEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -30,6 +34,9 @@ export class ContractEntity {
 
   @Column({ type: 'simple-array', nullable: true, default: [] })
   monitoredEvents: string[];
+
+  @Column({ type: 'enum', enum: Chain })
+  chain: Chain;
 
   @Column({ nullable: true })
   lastSyncedBlock: number;
