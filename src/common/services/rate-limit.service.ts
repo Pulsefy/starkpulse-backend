@@ -10,6 +10,8 @@ import {
 } from '../interfaces/rate-limit.interface';
 import { RateLimitType, RateLimitStrategy } from '../enums/rate-limit.enum';
 import { TrustedUserService } from './trusted-user.service';
+import { EnhancedSystemHealthService } from './enhanced-system-health.service';
+import { RateLimitMetricsStore } from '../stores/rate-limit-metrics.store';
 
 @Injectable()
 export class RateLimitService {
@@ -22,6 +24,8 @@ export class RateLimitService {
     private readonly configService: ConfigService,
     private readonly trustedUserService: TrustedUserService,
     private readonly store: any,
+    private readonly systemHealthService: EnhancedSystemHealthService,
+    private readonly metricsStore: RateLimitMetricsStore,
   ) {
     this.adaptiveConfig = this.configService.get<AdaptiveRateLimitConfig>(
       'rateLimit.adaptive',
@@ -76,8 +80,9 @@ export class RateLimitService {
         );
       }
 
+      let result: RateLimitResult;
       if (config.tokenBucket && this.store.hitTokenBucket) {
-        const result = await this.store.hitTokenBucket(
+        result = await this.store.hitTokenBucket(
           key,
           config.tokenBucket,
           userId,
@@ -89,17 +94,17 @@ export class RateLimitService {
               `tokens: ${result.remaining}`,
           );
         }
-        return result;
+      } else {
+        result = await this.store.hit(key, config.windowMs, effectiveLimit);
+        if (!result.allowed) {
+          this.logger.warn(
+            `Rate limit exceeded for key: ${key}, limit: ${effectiveLimit}, ` +
+              `hits: ${result.totalHits}, remaining: ${result.remaining}`,
+          );
+        }
       }
 
-      const result = await this.store.hit(key, config.windowMs, effectiveLimit);
-
-      if (!result.allowed) {
-        this.logger.warn(
-          `Rate limit exceeded for key: ${key}, limit: ${effectiveLimit}, ` +
-            `hits: ${result.totalHits}, remaining: ${result.remaining}`,
-        );
-      }
+      await this.recordMetrics(key, result, config, userId);
 
       return result;
     } catch (error) {
@@ -161,32 +166,68 @@ export class RateLimitService {
     return this.currentAdaptiveMultiplier;
   }
 
+  private async recordMetrics(
+    key: string,
+    result: RateLimitResult,
+    config: RateLimitConfig,
+    userId?: number,
+  ): Promise<void> {
+    try {
+      const systemMetrics = await this.systemHealthService.getSystemMetrics();
+      const tokenBucketConfig = config.tokenBucket;
+      
+      const metrics = {
+        userId,
+        bucketSize: tokenBucketConfig?.capacity || config.max,
+        refillRate: tokenBucketConfig?.refillRate || config.max,
+        tokensLeft: result.remaining,
+        lastRequestTime: new Date(),
+        deniedRequests: result.allowed ? 0 : 1,
+        totalRequests: 1,
+      };
+
+      await this.metricsStore.recordMetrics(key, metrics, {
+        cpuUsage: systemMetrics.cpu.usage,
+        memoryUsage: systemMetrics.memory.usage,
+        adaptiveMultiplier: this.currentAdaptiveMultiplier,
+      });
+    } catch (error) {
+      this.logger.error(`Failed to record metrics for key ${key}:`, error);
+    }
+  }
+
   private startAdaptiveMonitoring(): void {
     if (!this.adaptiveConfig?.enabled) return;
 
     setInterval(async () => {
       try {
-        // Simple system health check without external dependency
-        const memUsage = process.memoryUsage();
-        const memoryUsagePercent =
-          (memUsage.heapUsed / memUsage.heapTotal) * 100;
+        const systemMetrics = await this.systemHealthService.getSystemMetrics();
+        const cpuUsage = systemMetrics.cpu.usage;
+        const memoryUsage = systemMetrics.memory.usage;
 
-        if (memoryUsagePercent > this.adaptiveConfig.increaseThreshold * 100) {
+        if (cpuUsage > this.adaptiveConfig.cpuThreshold || 
+            memoryUsage > this.adaptiveConfig.memoryThreshold) {
           // System under stress, decrease limits
           this.currentAdaptiveMultiplier = Math.max(
             this.adaptiveConfig.minMultiplier,
-            this.currentAdaptiveMultiplier -
-              this.adaptiveConfig.adjustmentFactor,
+            this.currentAdaptiveMultiplier - this.adaptiveConfig.adjustmentFactor,
+          );
+          this.logger.debug(
+            `System under load (CPU: ${cpuUsage.toFixed(2)}%, Memory: ${memoryUsage.toFixed(2)}%). ` +
+            `Reducing adaptive multiplier to ${this.currentAdaptiveMultiplier.toFixed(3)}`
           );
         } else if (
-          memoryUsagePercent <
-          this.adaptiveConfig.decreaseThreshold * 100
+          cpuUsage < this.adaptiveConfig.decreaseThreshold * 100 &&
+          memoryUsage < this.adaptiveConfig.decreaseThreshold * 100
         ) {
           // System healthy, increase limits
           this.currentAdaptiveMultiplier = Math.min(
             this.adaptiveConfig.maxMultiplier,
-            this.currentAdaptiveMultiplier +
-              this.adaptiveConfig.adjustmentFactor,
+            this.currentAdaptiveMultiplier + this.adaptiveConfig.adjustmentFactor,
+          );
+          this.logger.debug(
+            `System healthy (CPU: ${cpuUsage.toFixed(2)}%, Memory: ${memoryUsage.toFixed(2)}%). ` +
+            `Increasing adaptive multiplier to ${this.currentAdaptiveMultiplier.toFixed(3)}`
           );
         }
       } catch (error) {
