@@ -91,12 +91,18 @@ export default registerAs('rateLimit', () => ({
   },
 
   adaptive: {
-    baseLimit: 100,
-    maxLimit: 200,
-    minLimit: 20,
-    increaseThreshold: 80,
-    decreaseThreshold: 30,
-    adjustmentFactor: 0.1,
+    enabled: process.env.ADAPTIVE_RATE_LIMITING_ENABLED === 'true' || false,
+    baseLimit: parseInt(process.env.ADAPTIVE_BASE_LIMIT || '', 10) || 100,
+    maxLimit: parseInt(process.env.ADAPTIVE_MAX_LIMIT || '', 10) || 1000,
+    minLimit: parseInt(process.env.ADAPTIVE_MIN_LIMIT || '', 10) || 10,
+    increaseThreshold: parseFloat(process.env.ADAPTIVE_INCREASE_THRESHOLD || '') || 0.8,
+    decreaseThreshold: parseFloat(process.env.ADAPTIVE_DECREASE_THRESHOLD || '') || 0.2,
+    adjustmentFactor: parseFloat(process.env.ADAPTIVE_ADJUSTMENT_FACTOR || '') || 0.1,
+    cpuThreshold: parseFloat(process.env.ADAPTIVE_CPU_THRESHOLD || '') || 85,
+    memoryThreshold: parseFloat(process.env.ADAPTIVE_MEMORY_THRESHOLD || '') || 80,
+    responseTimeThreshold: parseInt(process.env.ADAPTIVE_RESPONSE_TIME_THRESHOLD || '', 10) || 1000,
+    minMultiplier: parseFloat(process.env.ADAPTIVE_MIN_MULTIPLIER || '') || 0.1,
+    maxMultiplier: parseFloat(process.env.ADAPTIVE_MAX_MULTIPLIER || '') || 2.0,
   },
 
   trusted: {

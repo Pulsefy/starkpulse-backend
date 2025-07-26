@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { CacheModule } from '@nestjs/cache-manager';
 import { RateLimitService } from '../services/rate-limit.service';
 import { SystemHealthService } from '../services/system-health.service';
+import { EnhancedSystemHealthService } from '../services/enhanced-system-health.service';
 import { TrustedUserService } from '../services/trusted-user.service';
 import { RateLimitGuard } from '../guards/rate-limit.guard';
 import { RateLimitMiddleware } from '../middleware/rate-limit.middleware';
@@ -11,7 +12,9 @@ import { MemoryRateLimitStore } from '../stores/memory-rate-limit.store';
 import { RedisRateLimitStore } from '../stores/redis-rate-limit.store';
 import { SlidingWindowRateLimitStore } from '../stores/sliding-window-rate-limit.store';
 import { TokenBucketRateLimitStore } from '../stores/token-bucket-rate-limit.store';
+import { RateLimitMetricsStore } from '../stores/rate-limit-metrics.store';
 import { RateLimitStore } from '../stores/rate-limit-store.interface';
+import { AdminRateLimitController } from '../controllers/admin-rate-limit.controller';
 
 @Module({})
 export class RateLimitModule {
@@ -41,18 +44,23 @@ export class RateLimitModule {
         },
         RateLimitService,
         SystemHealthService,
+        EnhancedSystemHealthService,
         TrustedUserService,
         RateLimitGuard,
         RateLimitMiddleware,
         RateLimitLoggingInterceptor,
+        RateLimitMetricsStore,
+        AdminRateLimitController,
       ],
       exports: [
         RateLimitService,
         SystemHealthService,
+        EnhancedSystemHealthService,
         TrustedUserService,
         RateLimitGuard,
         RateLimitMiddleware,
         RateLimitLoggingInterceptor,
+        RateLimitMetricsStore,
       ],
       global: true,
     };
