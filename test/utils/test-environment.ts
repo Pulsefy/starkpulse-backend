@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { CacheModule } from '@nestjs/cache-manager';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, ObjectLiteral } from 'typeorm';
 import {
   PostgreSqlContainer,
   StartedPostgreSqlContainer,
@@ -144,7 +144,7 @@ export class TestEnvironment {
     }
   }
 
-  static getRepository<T>(entity: any): Repository<T> {
+  static getRepository<T extends ObjectLiteral>(entity: any): Repository<T> {
     return this.moduleRef.get(getRepositoryToken(entity));
   }
 
