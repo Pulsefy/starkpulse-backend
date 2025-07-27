@@ -17,6 +17,10 @@ import { Blockchain } from './entities/blockchain.entity';
 import { EventEntity } from './entities/event.entity';
 import { ContractEntity } from './entities/contract.entity';
 import { StarknetContractService } from './services/starknet-contract.service';
+import { EthereumAdapterService } from './services/ethereum-adapter.service';
+import { BitcoinAdapterService } from './services/bitcoin-adapter.service';
+import { PolygonAdapterService } from './services/polygon-adapter.service';
+import { BSCAdapterService } from './services/bsc-adapter.service';
 
 @Module({
   imports: [
@@ -31,17 +35,23 @@ import { StarknetContractService } from './services/starknet-contract.service';
   providers: [
     BlockchainService,
     ContractService,
-
     StarknetService,StarknetContractService,
     EventListenerService,
     EventProcessorService,
+    EthereumAdapterService,
+    BitcoinAdapterService,
+    PolygonAdapterService,
+    BSCAdapterService,
   ],
   exports: [
     ContractService, StarknetContractService,
-
     StarknetService,
     EventListenerService,
     EventProcessorService,
+    EthereumAdapterService,
+    BitcoinAdapterService,
+    PolygonAdapterService,
+    BSCAdapterService,
   ],
 })
 export class BlockchainModule {}

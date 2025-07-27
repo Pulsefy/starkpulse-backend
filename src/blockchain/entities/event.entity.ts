@@ -5,10 +5,16 @@ import {
   CreateDateColumn,
   ManyToOne,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { ContractEntity } from './contract.entity';
+import { Chain } from '../enums/chain.enum';
 
 @Entity('contract_events')
+@Index(['chain'])
+@Index(['contractId'])
+@Index(['blockNumber'])
+@Index(['timestamp'])
 export class EventEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -36,6 +42,9 @@ export class EventEntity {
 
   @Column({ default: false })
   isProcessed: boolean;
+
+  @Column({ type: 'enum', enum: Chain })
+  chain: Chain;
 
   @CreateDateColumn()
   createdAt: Date;

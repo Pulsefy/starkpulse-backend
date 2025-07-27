@@ -124,4 +124,65 @@ export class BlockchainController {
   remove(@Param('id') id: string) {
     return this.blockchainService.remove(+id);
   }
+
+  @Post(':chain/contract/:address/call')
+  @ApiOperation({ summary: 'Call a contract method on a specific chain' })
+  @ApiParam({ name: 'chain', description: 'Blockchain network (e.g., ethereum, bitcoin, polygon, bsc)' })
+  @ApiParam({ name: 'address', description: 'Contract address' })
+  @ApiBody({ schema: { example: { abi: [], method: 'balanceOf', args: ['0x...'] } } })
+  async callContractMethod(
+    @Param('chain') chain: string,
+    @Param('address') address: string,
+    @Body() body: { abi: any; method: string; args: any[] },
+  ) {
+    return this.blockchainService.callContractMethod(chain, address, body.abi, body.method, body.args);
+  }
+
+  @Post(':chain/contract/:address/execute')
+  @ApiOperation({ summary: 'Execute a contract method (transaction) on a specific chain' })
+  @ApiParam({ name: 'chain', description: 'Blockchain network' })
+  @ApiParam({ name: 'address', description: 'Contract address' })
+  @ApiBody({ schema: { example: { abi: [], method: 'transfer', args: ['0x...', '100'] } } })
+  async executeContractMethod(
+    @Param('chain') chain: string,
+    @Param('address') address: string,
+    @Body() body: { abi: any; method: string; args: any[] },
+  ) {
+    return this.blockchainService.executeContractMethod(chain, address, body.abi, body.method, body.args);
+  }
+
+  @Post(':chain/contract/:address/events')
+  @ApiOperation({ summary: 'Get contract events on a specific chain' })
+  @ApiParam({ name: 'chain', description: 'Blockchain network' })
+  @ApiParam({ name: 'address', description: 'Contract address' })
+  @ApiBody({ schema: { example: { abi: [], eventName: 'Transfer', options: { fromBlock: 0, toBlock: 100 } } } })
+  async getEvents(
+    @Param('chain') chain: string,
+    @Param('address') address: string,
+    @Body() body: { abi: any; eventName: string; options: { fromBlock: number; toBlock?: number } },
+  ) {
+    return this.blockchainService.getEvents(chain, address, body.abi, body.eventName, body.options);
+  }
+
+  @Get(':chain/tx/:txHash')
+  @ApiOperation({ summary: 'Get transaction details on a specific chain' })
+  @ApiParam({ name: 'chain', description: 'Blockchain network' })
+  @ApiParam({ name: 'txHash', description: 'Transaction hash' })
+  async getTransaction(
+    @Param('chain') chain: string,
+    @Param('txHash') txHash: string,
+  ) {
+    return this.blockchainService.getTransaction(chain, txHash);
+  }
+
+  @Get(':chain/account/:address')
+  @ApiOperation({ summary: 'Get account info on a specific chain' })
+  @ApiParam({ name: 'chain', description: 'Blockchain network' })
+  @ApiParam({ name: 'address', description: 'Account address' })
+  async getAccount(
+    @Param('chain') chain: string,
+    @Param('address') address: string,
+  ) {
+    return this.blockchainService.getAccount(chain, address);
+  }
 }

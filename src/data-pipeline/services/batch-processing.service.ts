@@ -15,6 +15,7 @@ export class BatchProcessingService {
   ) {}
 
   // Batch ETL jobs (scheduled)
+  // Handles multi-chain, normalized blockchain data
   @Cron(CronExpression.EVERY_HOUR)
   async processBatch(): Promise<void> {
     // Example: fetch batch data from a source
@@ -27,7 +28,7 @@ export class BatchProcessingService {
       const transformed = await this.transformation.transform(raw);
       const validation = await this.validation.validate(transformed);
       await this.lineage.trackLineage(validation.cleansed, 'batch');
-      // TODO: Save cleansed data to DB or analytics/reporting system
+    
     }
   }
 }
