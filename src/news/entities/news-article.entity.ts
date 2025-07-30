@@ -74,6 +74,8 @@ export class NewsArticle {
     likes?: number;
   };
 
+  
+
   @CreateDateColumn()
   createdAt: Date;
 

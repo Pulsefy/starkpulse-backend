@@ -24,7 +24,8 @@ export class ApiAbuseDetectionService {
       const count = this.failedAttempts.get(identifier);
       if (count && count > 0) {
         this.failedAttempts.set(identifier, count - 1);
-        if (this.failedAttempts.get(identifier) <= 0) {
+        const updatedCount = this.failedAttempts.get(identifier);
+        if (updatedCount !== undefined && updatedCount <= 0) {
           this.failedAttempts.delete(identifier);
         }
       }

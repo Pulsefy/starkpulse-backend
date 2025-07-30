@@ -1,9 +1,10 @@
 import { Injectable, Logger } from "@nestjs/common"
 import type { Repository } from "typeorm"
 import { type SecurityEvent, SecurityEventType } from "../common/security/entities/security-event.entity"
-import type { ThreatIntelligence, ThreatType } from "../common/security/entities/threat-intelligence.entity"
+import type { ThreatType } from "../common/security/entities/security-threat.entity"
+import { ThreatIntelligence } from "./threat-intelligence.entity"
 
-export interface ThreatAnalysisResult {
+export interface ThreatAnalysisResult {entity
   isThreat: boolean
   riskScore: number
   reasons: string[]
@@ -100,6 +101,7 @@ export class ThreatDetectionService {
     this.logger.debug(`Threat analysis for event ${event.id}: Risk Score ${riskScore}, Is Threat: ${isThreat}`)
 
     return {
+      entity: event,
       isThreat,
       riskScore,
       reasons,
@@ -108,7 +110,7 @@ export class ThreatDetectionService {
   }
 
   private async checkThreatIntelligence(event: SecurityEvent): Promise<ThreatIntelligence | null> {
-    const indicators = []
+    const indicators: string[] = []
 
     if (event.sourceIp) {
       indicators.push(event.sourceIp)
@@ -269,7 +271,12 @@ export class ThreatDetectionService {
     }[],
   ): Promise<void> {
     for (const indicator of indicators) {
-      await this.threatIntelligenceRepository.save(this.threatIntelligenceRepository.create(indicator))
+      await this.threatIntelligenceRepository.save(
+        this.threatIntelligenceRepository.create({
+          ...indicator,
+          threatType: indicator.threatType as any
+        })
+      )
     }
 
     this.logger.log(`Updated threat intelligence with ${indicators.length} indicators`)

@@ -30,6 +30,11 @@ export enum SecurityEventType {
   CONFIGURATION_CHANGE = 'configuration_change',
   USER_PERMISSION_CHANGE = 'user_permission_change',
   SYSTEM_BREACH_ATTEMPT = 'system_breach_attempt',
+  PRIVILEGE_ESCALATION = "PRIVILEGE_ESCALATION",
+  MALWARE_DETECTION = "MALWARE_DETECTION",
+  NETWORK_INTRUSION = "NETWORK_INTRUSION",
+  POLICY_VIOLATION = "POLICY_VIOLATION",
+  SYSTEM_ANOMALY = "SYSTEM_ANOMALY",
 }
 
 export enum SecurityEventSeverity {
@@ -136,4 +141,8 @@ export class SecurityEvent {
 
   @Column({ nullable: true })
   resolvedAt?: Date;
+  sourceIp: any;
+  correlationId: any;
+  riskScore: number;
+  resource: any;
 } 
