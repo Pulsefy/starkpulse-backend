@@ -2,11 +2,9 @@ import { Injectable, Logger } from "@nestjs/common"
 import type { Repository } from "typeorm"
 import type { EventEmitter2 } from "@nestjs/event-emitter"
 import type { SecurityEvent } from "../common/security/entities/security-event.entity"
-import {
-  type SecurityIncident,
-  IncidentSeverity,
-  IncidentStatus,
-} from "../common/security/entities/security-incident.entity"
+import { SecurityIncident } from "./security-incident.entity"
+import { IncidentStatus } from "./security-incident.entity"
+import { IncidentSeverity } from "./security-incident.entity"
 
 export interface ResponseAction {
   type: "block_ip" | "disable_user" | "alert_admin" | "quarantine_file" | "isolate_system"
@@ -192,7 +190,7 @@ export class IncidentResponseService {
       reason: action.metadata?.reason,
     })
 
-    this.logger.critical(`System isolated: ${action.target}`)
+    this.logger.error(`System isolated: ${action.target}`)
   }
 
   private mapEventSeverityToIncidentSeverity(eventSeverity: string): IncidentSeverity {

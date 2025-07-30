@@ -20,7 +20,7 @@ export class BitcoinAdapterService implements BlockchainAdapter {
 
   async getBlockNumber(): Promise<number> {
     try {
-      return await this.client.getBlockCount();
+      return await this.client.command('getblockcount');
     } catch (error) {
       this.logger.error('Failed to get block number', error);
       throw error;
@@ -45,7 +45,7 @@ export class BitcoinAdapterService implements BlockchainAdapter {
 
   async getTransaction(txHash: string): Promise<any> {
     try {
-      return await this.client.getRawTransaction(txHash, true);
+      return await this.client.command('getrawtransaction', txHash, true);
     } catch (error) {
       this.logger.error('Failed to get transaction', error);
       throw error;

@@ -8,6 +8,7 @@ import {
   HttpStatus,
   Logger,
   Req,
+  HttpException,
 } from '@nestjs/common';
 import { ApiSigningGuard } from './guards/api-signing.guard';
 import { ApiAbuseDetectionService } from './services/api-abuse-detection.service';
@@ -43,9 +44,9 @@ export class ApiSecurityController {
     const abuseCheck = this.abuseDetectionService.analyzeRequest(body.message);
     if (abuseCheck.isAbusive) {
       this.abuseDetectionService.recordFailedAttempt(body.message);
-      throw new HttpStatus(
-        HttpStatus.FORBIDDEN,
+      throw new HttpException(
         `Abusive request detected: ${abuseCheck.reason}`,
+        HttpStatus.FORBIDDEN,
       );
     }
     return {
