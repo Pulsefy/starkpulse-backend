@@ -49,6 +49,8 @@ import { EncryptionModule } from './encryption/encryption.module';
 import { ApiSecurityModule } from './api-security/api-security.module';
 import { UsageBillingModule } from './usage-billing/usage-billing.module';
 import { RedisModule } from './redis/redis.module';
+import { CacheModule } from './common/cache/cache.module';
+import { CacheMiddleware } from './common/middleware/cache.middleware';
 
 @Module({
   imports: [
@@ -138,6 +140,18 @@ export class AppModule implements NestModule {
         { path: 'security/csrf-token', method: RequestMethod.GET },
       )
       .forRoutes('*');
+    consumer.apply(RateLimitMiddleware).forRoutes('*');
+    
+    // Add cache middleware before rate limiting
+    consumer
+      .apply(CacheMiddleware)
+      .exclude(
+        { path: 'api/health', method: RequestMethod.ALL },
+        { path: 'api/auth/*', method: RequestMethod.ALL },
+        { path: 'api/admin/*', method: RequestMethod.ALL },
+      )
+      .forRoutes('*');
+      
     consumer.apply(RateLimitMiddleware).forRoutes('*');
   }
 }
