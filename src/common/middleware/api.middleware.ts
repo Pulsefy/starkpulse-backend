@@ -1,7 +1,8 @@
 import { Injectable, NestMiddleware } from "@nestjs/common";
-import { NextFunction } from "express";
+import { Request, Response, NextFunction } from "express";
 import { MonitoringService } from "src/monitoring/monitoring.service";
 import { SlaService } from "src/usage-billing/sla.service";
+import { ApiGatewayService } from "src/api-gateway/api-gateway.service";
 
 @Injectable()
 export class ApiMiddleware implements NestMiddleware {

@@ -19,7 +19,7 @@ export class RateLimitGuard implements CanActivate {
   private readonly MAX_REQUESTS = 10;
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest<Request>();
-    const ip = request.ip;
+    const ip = request.ip || 'unknown';
 
     const now = Date.now();
     const client = this.limits.get(ip) || { count: 0, lastReset: now };

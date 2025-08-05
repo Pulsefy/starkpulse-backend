@@ -11,16 +11,18 @@ export class BitcoinAdapterService implements BlockchainAdapter {
 
   constructor() {
     this.client = new Client({
-      host: process.env.BITCOIN_RPC_HOST || 'localhost',
-      port: process.env.BITCOIN_RPC_PORT ? parseInt(process.env.BITCOIN_RPC_PORT) : 8332,
+      host: process.env.BITCOIN_RPC_HOST
+        ? `${process.env.BITCOIN_RPC_HOST}:${process.env.BITCOIN_RPC_PORT || 8332}`
+        : `localhost:${process.env.BITCOIN_RPC_PORT || 8332}`,
       username: process.env.BITCOIN_RPC_USER || 'user',
       password: process.env.BITCOIN_RPC_PASSWORD || 'password',
+      // The 'port' property is not supported in ClientConfig, so include it in the host string if needed
     });
   }
 
   async getBlockNumber(): Promise<number> {
     try {
-      return await this.client.getBlockCount();
+      return await this.client.command('getblockcount');
     } catch (error) {
       this.logger.error('Failed to get block number', error);
       throw error;
@@ -45,7 +47,7 @@ export class BitcoinAdapterService implements BlockchainAdapter {
 
   async getTransaction(txHash: string): Promise<any> {
     try {
-      return await this.client.getRawTransaction(txHash, true);
+      return await this.client.command('getrawtransaction', txHash, true);
     } catch (error) {
       this.logger.error('Failed to get transaction', error);
       throw error;

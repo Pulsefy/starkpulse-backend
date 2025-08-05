@@ -4,6 +4,7 @@ import type { ValidatorService } from "./validator.service"
 import type { ValidationTaskService } from "./validation-task.service"
 import type { RewardService } from "./reward.service"
 import type { QualityMetricsService } from "./quality-metrics.service"
+import { ValidatorTier } from "../entities/validator.entity"
 
 @Injectable()
 export class NetworkService {
@@ -129,17 +130,17 @@ export class NetworkService {
       let newTier = validator.tier
 
       if (validator.reputationScore >= 90 && validator.accuracyRate >= 95) {
-        newTier = "platinum"
+        newTier = "platinum" as ValidatorTier
       } else if (validator.reputationScore >= 75 && validator.accuracyRate >= 90) {
-        newTier = "gold"
+        newTier = "gold" as ValidatorTier
       } else if (validator.reputationScore >= 60 && validator.accuracyRate >= 80) {
-        newTier = "silver"
+        newTier = "silver" as ValidatorTier
       } else {
-        newTier = "bronze"
+        newTier = "bronze" as ValidatorTier
       }
 
       if (newTier !== validator.tier) {
-        await this.validatorService.updateTier(validator.id, newTier as any)
+        await this.validatorService.updateTier(validator.id, newTier)
         this.logger.log(`Updated validator ${validator.id} tier to ${newTier}`)
       }
     }

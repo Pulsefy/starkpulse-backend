@@ -91,15 +91,15 @@ export class BackupService {
       const inp = fs.createReadStream(file);
       const tempDecrypted = file.replace('.enc', '.tmp');
       const out = fs.createWriteStream(tempDecrypted);
-      await new Promise((resolve, reject) => {
-        inp.pipe(decipher).pipe(out).on('finish', resolve).on('error', reject);
+      await new Promise<void>((resolve, reject) => {
+        inp.pipe(decipher).pipe(out).on('finish', () => resolve()).on('error', reject);
       });
       // Decompress
       const gunzip = zlib.createGunzip();
       const inp2 = fs.createReadStream(tempDecrypted);
       const out2 = fs.createWriteStream(tempDecrypted + '.out');
-      await new Promise((resolve, reject) => {
-        inp2.pipe(gunzip).pipe(out2).on('finish', resolve).on('error', reject);
+      await new Promise<void>((resolve, reject) => {
+        inp2.pipe(gunzip).pipe(out2).on('finish', () => resolve()).on('error', reject);
       });
       fs.unlinkSync(tempDecrypted);
       fs.unlinkSync(tempDecrypted + '.out');

@@ -162,7 +162,10 @@ export class SiemService {
         const correlationId = `corr_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 
         // Update events with correlation ID
-        await this.securityEventRepository.update({ id: In(events.map((e) => e.id)) }, { correlationId })
+        await this.securityEventRepository.update(
+          { id: In(events.map((e) => e.id)) },
+          { correlationId: correlationId } as Partial<SecurityEvent>
+        )
 
         correlationGroups.push(correlationId)
 

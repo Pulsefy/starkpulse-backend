@@ -18,10 +18,13 @@ export class EncryptionService {
       const cipher = createCipheriv(algorithm, key, iv);
       let encrypted = cipher.update(text, 'utf8', 'hex');
       encrypted += cipher.final('hex');
-      const authTag = cipher.getAuthTag();
+      let authTag: Buffer | null = null;
+      if (algorithm.toLowerCase().includes('gcm')) {
+        authTag = (cipher as any).getAuthTag();
+      }
 
       // Return IV, encrypted data, and authTag for decryption
-      return `${iv.toString('hex')}:${encrypted}:${authTag.toString('hex')}`;
+      return `${iv.toString('hex')}:${encrypted}:${authTag ? authTag.toString('hex') : ''}`;
     } catch (error) {
       this.logger.error(`Encryption failed: ${error.message}`, error.stack);
       throw new Error('Failed to encrypt data.');
@@ -43,7 +46,11 @@ export class EncryptionService {
       const algorithm = this.keyManagementService.getAlgorithm();
 
       const decipher = createDecipheriv(algorithm, key, iv);
-      decipher.setAuthTag(authTag);
+
+      // Only set authTag if algorithm is GCM (e.g., 'aes-256-gcm')
+      if (algorithm.toLowerCase().includes('gcm')) {
+        (decipher as any).setAuthTag(authTag);
+      }
 
       let decrypted = decipher.update(encrypted, 'hex', 'utf8');
       decrypted += decipher.final('utf8');

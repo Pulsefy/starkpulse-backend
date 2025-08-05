@@ -10,6 +10,7 @@ export enum ReputationChangeType {
   STAKE_DECREASE = "stake_decrease",
   PENALTY = "penalty",
   BONUS = "bonus",
+  REPUTATION_UPDATE = "REPUTATION_UPDATE",
 }
 
 @Entity("reputation_scores")

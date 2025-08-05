@@ -19,7 +19,7 @@ export class QualityMetricsService {
 
     // Get all validation results for this content
     const validationTasks = await this.getValidationTasksForContent(contentItemId)
-    const allResults = []
+    const allResults: any[] = []
 
     for (const task of validationTasks) {
       const results = await this.validationResultService.findByTaskId(task.id)

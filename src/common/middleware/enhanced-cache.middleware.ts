@@ -169,7 +169,7 @@ export class EnhancedCacheMiddleware implements NestMiddleware {
 
     // Skip caching for authenticated requests that require real-time data
     options.skipIf = (req: Request) => {
-      return req.headers.authorization && req.path.includes("/real-time")
+      return !!req.headers.authorization && req.path.includes("/real-time")
     }
 
     return options
@@ -193,7 +193,7 @@ export class EnhancedCacheMiddleware implements NestMiddleware {
           }
           break
         case "user":
-          const userId = req.headers["x-user-id"] || req.user?.id
+          const userId = req.headers["x-user-id"] || (req.user && (req.user as any).userId)
           if (userId) {
             parts.push(`user:${userId}`)
           }

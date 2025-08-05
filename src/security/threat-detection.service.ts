@@ -1,7 +1,8 @@
 import { Injectable, Logger } from "@nestjs/common"
 import type { Repository } from "typeorm"
 import { type SecurityEvent, SecurityEventType } from "../common/security/entities/security-event.entity"
-import type { ThreatIntelligence, ThreatType } from "../common/security/entities/threat-intelligence.entity"
+import type { ThreatIntelligence } from "./threat-intelligence.entity"
+import type  {ThreatType } from "./threat-intelligence.entity"
 
 export interface ThreatAnalysisResult {
   isThreat: boolean
@@ -108,7 +109,7 @@ export class ThreatDetectionService {
   }
 
   private async checkThreatIntelligence(event: SecurityEvent): Promise<ThreatIntelligence | null> {
-    const indicators = []
+    const indicators: string[] = []
 
     if (event.sourceIp) {
       indicators.push(event.sourceIp)
