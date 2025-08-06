@@ -8,6 +8,7 @@ import {
   HttpStatus,
   Logger,
   Req,
+  HttpException,
 } from '@nestjs/common';
 import { ApiSigningGuard } from './guards/api-signing.guard';
 import { ApiAbuseDetectionService } from './services/api-abuse-detection.service';
@@ -35,15 +36,15 @@ export class ApiSecurityController {
   @Post('signed-data')
   @UseGuards(ApiVersioningGuard, ApiSigningGuard, RateLimitGuard)
   @HttpCode(HttpStatus.OK)
-  async getSignedData(@Body() body: TestDataDto): Promise<{
+  getSignedData(@Body() body: TestDataDto): {
     status: string;
     receivedMessage: string;
-  }> {
+  } {
     this.logger.log('Received request on signed-data endpoint.');
     const abuseCheck = this.abuseDetectionService.analyzeRequest(body.message);
     if (abuseCheck.isAbusive) {
       this.abuseDetectionService.recordFailedAttempt(body.message);
-      throw new (await import('@nestjs/common')).HttpException(
+      throw new HttpException(
         `Abusive request detected: ${abuseCheck.reason}`,
         HttpStatus.FORBIDDEN,
       );

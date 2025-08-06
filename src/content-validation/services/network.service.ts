@@ -24,7 +24,9 @@ export class NetworkService {
     return {
       totalValidators: activeValidators.length,
       activeValidators: activeValidators.filter(
-        (v) => v.lastActiveAt && new Date().getTime() - v.lastActiveAt.getTime() < 24 * 60 * 60 * 1000,
+        (v) =>
+          v.lastActiveAt &&
+          new Date().getTime() - v.lastActiveAt.getTime() < 24 * 60 * 60 * 1000,
       ).length,
       pendingTasks: pendingTasks.length,
       networkHealth: this.calculateNetworkHealth(activeValidators, pendingTasks),
@@ -40,7 +42,9 @@ export class NetworkService {
       totalValidations: validators.reduce((sum, v) => sum + v.totalValidations, 0),
       successfulValidations: validators.reduce((sum, v) => sum + v.successfulValidations, 0),
       averageAccuracy:
-        validators.length > 0 ? validators.reduce((sum, v) => sum + v.accuracyRate, 0) / validators.length : 0,
+        validators.length > 0
+          ? validators.reduce((sum, v) => sum + v.accuracyRate, 0) / validators.length
+          : 0,
       totalStaked: validators.reduce((sum, v) => sum + v.stakeAmount, 0),
       reputationDistribution: this.getReputationDistribution(validators),
     }
@@ -75,8 +79,11 @@ export class NetworkService {
 
   private calculateNetworkHealth(validators: any[], pendingTasks: any[]): string {
     const activeValidatorRatio =
-      validators.filter((v) => v.lastActiveAt && new Date().getTime() - v.lastActiveAt.getTime() < 24 * 60 * 60 * 1000)
-        .length / validators.length
+      validators.filter(
+        (v) =>
+          v.lastActiveAt &&
+          new Date().getTime() - v.lastActiveAt.getTime() < 24 * 60 * 60 * 1000,
+      ).length / validators.length
 
     const taskBacklogRatio = pendingTasks.length / Math.max(validators.length, 1)
 
@@ -127,16 +134,16 @@ export class NetworkService {
     const validators = await this.validatorService.findAll()
 
     for (const validator of validators) {
-      let newTier = validator.tier
+      let newTier: ValidatorTier
 
       if (validator.reputationScore >= 90 && validator.accuracyRate >= 95) {
-        newTier = "platinum" as ValidatorTier
+        newTier = ValidatorTier.Platinum
       } else if (validator.reputationScore >= 75 && validator.accuracyRate >= 90) {
-        newTier = "gold" as ValidatorTier
+        newTier = ValidatorTier.Gold
       } else if (validator.reputationScore >= 60 && validator.accuracyRate >= 80) {
-        newTier = "silver" as ValidatorTier
+        newTier = ValidatorTier.Silver
       } else {
-        newTier = "bronze" as ValidatorTier
+        newTier = ValidatorTier.Bronze
       }
 
       if (newTier !== validator.tier) {

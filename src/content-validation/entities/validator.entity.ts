@@ -15,6 +15,10 @@ export enum ValidatorTier {
   SILVER = "silver",
   GOLD = "gold",
   PLATINUM = "platinum",
+  Platinum = "Platinum",
+  Gold = "Gold",
+  Silver = "Silver",
+  Bronze = "Bronze",
 }
 
 @Entity("validators")

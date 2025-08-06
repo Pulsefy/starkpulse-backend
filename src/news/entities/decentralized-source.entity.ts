@@ -93,4 +93,6 @@ export class DecentralizedSource {
 
   @UpdateDateColumn()
   updatedAt: Date;
+  lastFetched: Date;
+  articleCount: any;
 }

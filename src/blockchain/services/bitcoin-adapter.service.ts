@@ -10,14 +10,31 @@ export class BitcoinAdapterService implements BlockchainAdapter {
   private client: Client;
 
   constructor() {
-    this.client = new Client({
-      host: process.env.BITCOIN_RPC_HOST
-        ? `${process.env.BITCOIN_RPC_HOST}:${process.env.BITCOIN_RPC_PORT || 8332}`
-        : `localhost:${process.env.BITCOIN_RPC_PORT || 8332}`,
-      username: process.env.BITCOIN_RPC_USER || 'user',
-      password: process.env.BITCOIN_RPC_PASSWORD || 'password',
-      // The 'port' property is not supported in ClientConfig, so include it in the host string if needed
-    });
+    // Prefer explicit port if provided, but fallback to host:port string if only host is given
+    if (process.env.BITCOIN_RPC_HOST && process.env.BITCOIN_RPC_PORT) {
+      this.client = new Client({
+        host: process.env.BITCOIN_RPC_HOST,
+        port: parseInt(process.env.BITCOIN_RPC_PORT),
+        username: process.env.BITCOIN_RPC_USER || 'user',
+        password: process.env.BITCOIN_RPC_PASSWORD || 'password',
+      });
+    } else if (process.env.BITCOIN_RPC_HOST) {
+      // If only host is provided, assume default port 8332
+      this.client = new Client({
+        host: process.env.BITCOIN_RPC_HOST,
+        port: 8332,
+        username: process.env.BITCOIN_RPC_USER || 'user',
+        password: process.env.BITCOIN_RPC_PASSWORD || 'password',
+      });
+    } else {
+      // Default to localhost:8332
+      this.client = new Client({
+        host: 'localhost',
+        port: 8332,
+        username: process.env.BITCOIN_RPC_USER || 'user',
+        password: process.env.BITCOIN_RPC_PASSWORD || 'password',
+      });
+    }
   }
 
   async getBlockNumber(): Promise<number> {
@@ -64,4 +81,4 @@ export class BitcoinAdapterService implements BlockchainAdapter {
       throw error;
     }
   }
-} 
+}

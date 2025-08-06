@@ -142,4 +142,8 @@ export class SecurityEvent {
 
   @Column({ nullable: true })
   resolvedAt?: Date;
+  sourceIp: any;
+  correlationId: any;
+  riskScore: number;
+  resource: any;
 } 

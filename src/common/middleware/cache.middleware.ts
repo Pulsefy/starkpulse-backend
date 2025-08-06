@@ -1,101 +1,139 @@
-/* eslint-disable @typescript-eslint/no-unsafe-return */
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-// src/common/middleware/cache.middleware.ts (updated with monitoring)
-import { Injectable, NestMiddleware } from '@nestjs/common';
+import { Injectable, NestMiddleware, Logger } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
-import { RedisService } from '../../common/module/redis/redis.service';
-import { CacheMonitorService } from '../../common/module/redis/redis-monitoring.service'; // Update path as needed
+import { CacheService, CacheOptions } from '../cache/cache.service';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class CacheMiddleware implements NestMiddleware {
-  constructor(
-    private readonly redisService: RedisService,
-    private readonly monitorService: CacheMonitorService,
-  ) {}
+  private readonly logger = new Logger(CacheMiddleware.name);
+  private readonly cacheEnabled: boolean;
 
-  async use(req: Request, res: Response, next: NextFunction) {
-    // Skip caching for non-GET requests
-    if (req.method !== 'GET') {
+  constructor(
+    private readonly cacheService: CacheService,
+    private readonly configService: ConfigService,
+  ) {
+    this.cacheEnabled = this.configService.get('CACHE_ENABLED', true);
+  }
+
+  async use(req: Request, res: Response, next: NextFunction): Promise<void> {
+    if (!this.cacheEnabled || req.method !== 'GET') {
       return next();
     }
 
-    const cacheKey = `api:${req.originalUrl}`;
-    const keyType = this.getKeyType(req.originalUrl);
-    const startTime = Date.now();
+    const cacheKey = this.generateCacheKey(req);
+    const cacheOptions = this.getCacheOptions(req);
+
+    // Skip caching based on conditions
+    if (this.shouldSkipCache(req)) {
+      return next();
+    }
 
     try {
       // Try to get from cache
-      const cachedData = await this.redisService.get(cacheKey);
+      const cachedData = await this.cacheService.get(cacheKey, cacheOptions);
 
       if (cachedData) {
-        // Record hit and latency
-        const latency = Date.now() - startTime;
-        await this.monitorService.recordHit(keyType);
-        await this.monitorService.recordLatency(keyType, latency);
-
-        // Return cached response
-        return res.send(JSON.parse(cachedData));
+        res.setHeader('X-Cache', 'HIT');
+        res.setHeader('X-Cache-Key', cacheKey);
+        return res.json(cachedData);
       }
 
-      // Record miss
-      await this.monitorService.recordMiss(keyType);
+      // Cache miss - intercept response
+      res.setHeader('X-Cache', 'MISS');
+      res.setHeader('X-Cache-Key', cacheKey);
 
-      // Store the original send method
-      const originalSend = res.send;
+      const originalJson = res.json.bind(res);
+      let responseSent = false;
 
-      // Override the response.send method to cache the response
-      res.send = function (body) {
-        // Only cache JSON responses
-        if (
-          res.getHeader('content-type')?.toString().includes('application/json')
-        ) {
-          // Cache the response
-          const cacheData =
-            typeof body === 'string' ? body : JSON.stringify(body);
-          this.redisService
-            .set(cacheKey, cacheData, getTTL(req.originalUrl))
-            .catch((err) => console.error('Cache error:', err));
+      res.json = (data: any) => {
+        if (!responseSent) {
+          responseSent = true;
+
+          // Cache the response asynchronously
+          this.cacheService.set(cacheKey, data, cacheOptions).catch((error) => {
+            this.logger.error(`Failed to cache response for key ${cacheKey}:`, error);
+          });
         }
 
-        // Call the original send method
-        return originalSend.call(this, body);
-      } as any;
+        return originalJson(data);
+      };
 
       next();
     } catch (error) {
-      // If caching fails, continue without caching
-      console.error('Caching error:', error);
+      this.logger.error(`Cache middleware error for key ${cacheKey}:`, error);
       next();
     }
   }
 
-  private getKeyType(url: string): string {
-    if (url.includes('/news')) {
-      return 'news';
+  private generateCacheKey(req: Request): string {
+    const parts = ['api', req.path];
+    
+    // Include query parameters
+    if (Object.keys(req.query).length > 0) {
+      const sortedQuery = Object.keys(req.query)
+        .sort()
+        .map((key) => `${key}=${req.query[key]}`)
+        .join('&');
+      parts.push(sortedQuery);
+    }
+    
+    // Include user context for personalized data
+    const userId = req.headers['x-user-id'] || (req as any).user?.id;
+    if (userId && req.path.includes('/portfolio')) {
+      parts.push(`user:${userId}`);
+    }
+    
+    return parts.join(':');
+  }
+
+  private getCacheOptions(req: Request): CacheOptions {
+    const options: CacheOptions = {
+      priority: 'medium',
+      storeLevel: 'both',
+    };
+
+    // Route-specific optimizations
+    if (req.path.startsWith('/api/market-data') || req.path.includes('/price')) {
+      options.ttl = 60; // 1 minute
+      options.tags = ['market-data'];
+      options.priority = 'high';
+    } else if (req.path.startsWith('/api/portfolio')) {
+      options.ttl = 300; // 5 minutes
+      options.tags = ['portfolio'];
+      options.priority = 'high';
+      options.storeLevel = 'redis'; // User data in Redis
+    } else if (req.path.startsWith('/api/news')) {
+      options.ttl = 1800; // 30 minutes
+      options.tags = ['news'];
+      options.compress = true;
+    } else if (req.path.startsWith('/api/analytics')) {
+      options.ttl = 3600; // 1 hour
+      options.tags = ['analytics'];
+      options.compress = true;
+      options.priority = 'low';
+    } else {
+      options.ttl = 300; // 5 minutes default
     }
 
-    if (url.includes('/market')) {
-      return 'market';
+    return options;
+  }
+
+  private shouldSkipCache(req: Request): boolean {
+    // Skip for real-time endpoints
+    if (req.path.includes('/real-time') || req.path.includes('/live')) {
+      return true;
     }
-
-    return 'other';
+    
+    // Skip for authenticated requests requiring fresh data
+    if (req.headers.authorization && req.path.includes('/admin')) {
+      return true;
+    }
+    
+    // Skip for POST-like operations disguised as GET
+    if (req.query.action || req.query.command) {
+      return true;
+    }
+    
+    return false;
   }
-}
-
-// Helper function to determine TTL based on URL
-function getTTL(url: string): number {
-  // News cache - 15 minutes
-  if (url.includes('/news')) {
-    return 900;
-  }
-
-  // Market data cache - 1 minute (more volatile)
-  if (url.includes('/market')) {
-    return 60;
-  }
-
-  // Default TTL - 5 minutes
-  return 300;
 }

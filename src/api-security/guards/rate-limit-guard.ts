@@ -17,6 +17,7 @@ export class RateLimitGuard implements CanActivate {
   >();
   private readonly WINDOW_MS = 60 * 1000;
   private readonly MAX_REQUESTS = 10;
+
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest<Request>();
     const ip = request.ip || 'unknown';

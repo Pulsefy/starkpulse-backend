@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common"
 import { type EventEmitter2, OnEvent } from "@nestjs/event-emitter"
 import type { SecurityEvent } from "../common/security/entities/security-event.entity"
-import type { SecurityIncident } from "../common/security/entities/security-incident.entity"
+import type { SecurityIncident } from "src/security/security-incident.entity"
 
 export interface AlertChannel {
   type: "email" | "slack" | "webhook" | "sms"
