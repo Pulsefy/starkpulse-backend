@@ -4,6 +4,7 @@ import { type Validator, ValidatorStatus, type ValidatorTier } from "../entities
 import type { CreateValidatorDto } from "../dto/create-validator.dto"
 import type { UpdateValidatorDto } from "../dto/update-validator.dto"
 import type { ReputationService } from "./reputation.service"
+import { ReputationChangeType } from "../entities/reputation-score.entity"
 
 @Injectable()
 export class ValidatorService {
@@ -95,7 +96,7 @@ export class ValidatorService {
       id,
       previousScore,
       newScore,
-      "reputation_update",
+      ReputationChangeType.REPUTATION_UPDATE,
       "Reputation score updated",
     )
 

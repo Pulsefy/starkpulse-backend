@@ -24,6 +24,21 @@ export enum IncidentStatus {
   CLOSED = "closed",
 }
 
+export function IncidentSeverityScore(severity: IncidentSeverity): number {
+  switch (severity) {
+    case IncidentSeverity.CRITICAL:
+      return 4
+    case IncidentSeverity.HIGH:
+      return 3
+    case IncidentSeverity.MEDIUM:
+      return 2
+    case IncidentSeverity.LOW:
+      return 1
+    default:
+      return 0
+  }
+}
+
 @Entity("security_incidents")
 export class SecurityIncident {
   @PrimaryGeneratedColumn("uuid")

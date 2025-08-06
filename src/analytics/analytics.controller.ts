@@ -49,16 +49,16 @@ export class AnalyticsController {
   @ApiResponse({
     status: 200,
     description: 'User analytics',
-    type: AnalyticsResponseDto,
+    type: [AnalyticsResponseDto],
   })
   @ApiResponse({ status: 404, description: 'User not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 500, description: 'Internal server error' })
   async getUserAnalytics(
     @Param('userId') userId: string,
-  ): Promise<AnalyticsResponseDto> {
+  ): Promise<AnalyticsResponseDto[]> {
     const result = await this.analyticsService.getUserAnalytics(userId);
-    if (!result) {
+    if (!result || result.length === 0) {
       throw new NotFoundException(
         `Not enough snapshots found for user ${userId}`,
       );

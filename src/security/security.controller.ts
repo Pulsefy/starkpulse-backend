@@ -1,11 +1,13 @@
 import { Controller } from "@nestjs/common"
 import { ApiTags } from "@nestjs/swagger"
 import type { SiemService, SecurityEventData } from "./siem.service"
-import type { ThreatDetectionService, ThreatType } from "./threat-detection.service"
+import type { ThreatDetectionService } from "./threat-detection.service"
 import type { IncidentResponseService } from "./incident-response.service"
-import type { AlertingService } from "../monitoring/alerting.service"
-import type { SecurityEventType, SecurityEventSeverity } from "../common/security/entities/security-event.entity"
-import type { IncidentStatus, IncidentSeverity } from "../common/security/entities/security-incident.entity"
+import type { AlertingService } from "src/seis-monitoring/alerting.service"
+import type { SecurityEventType, SecurityEventSeverity, SecurityEventStatus } from "../common/security/entities/security-event.entity"
+import type { IncidentStatus } from "./security-incident.entity"
+import { IncidentSeverity } from "./security-incident.entity"
+import type { ThreatType } from "./threat-intelligence.entity"
 
 @ApiTags("Security")
 @Controller("security")

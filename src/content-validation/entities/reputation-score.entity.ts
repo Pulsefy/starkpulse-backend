@@ -1,5 +1,12 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn } from "typeorm"
-import { Validator } from "./validator.entity"
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  ManyToOne,
+  JoinColumn,
+} from "typeorm";
+import { Validator } from "./validator.entity";
 
 export enum ReputationChangeType {
   VALIDATION_SUCCESS = "validation_success",
@@ -10,44 +17,23 @@ export enum ReputationChangeType {
   STAKE_DECREASE = "stake_decrease",
   PENALTY = "penalty",
   BONUS = "bonus",
+  REPUTATION_UPDATE = "REPUTATION_UPDATE", // <-- retained from 'olive'
 }
 
 @Entity("reputation_scores")
 export class ReputationScore {
   @PrimaryGeneratedColumn("uuid")
-  id: string
+  id: string;
 
   @Column()
-  validatorId: string
+  validatorId: string;
 
-  @ManyToOne(
-    () => Validator,
-    (validator) => validator.reputationHistory,
-  )
+  @ManyToOne(() => Validator, (validator) => validator.reputationHistory)
   @JoinColumn({ name: "validatorId" })
-  validator: Validator
+  validator: Validator;
 
   @Column({ type: "decimal", precision: 5, scale: 2 })
-  previousScore: number
+  previousScore: number;
 
   @Column({ type: "decimal", precision: 5, scale: 2 })
-  newScore: number
-
-  @Column({ type: "decimal", precision: 5, scale: 2 })
-  change: number
-
-  @Column({
-    type: "enum",
-    enum: ReputationChangeType,
-  })
-  changeType: ReputationChangeType
-
-  @Column({ type: "text", nullable: true })
-  reason: string
-
-  @Column({ type: "jsonb", nullable: true })
-  metadata: Record<string, any>
-
-  @CreateDateColumn()
-  createdAt: Date
-}
+  ne

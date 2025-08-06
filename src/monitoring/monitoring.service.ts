@@ -5,6 +5,12 @@ import { UpdateMonitoringDto } from './dto/update-monitoring.dto';
 
 @Injectable()
 export class MonitoringService {
+  logUsage(user: any, url: string, method: string, duration: number) {
+    throw new Error("Method not implemented.");
+  }
+  logUsage(user: any, url: string, method: string, duration: number) {
+    throw new Error("Method not implemented.");
+  }
   getMetrics: any;
   create(createMonitoringDto: CreateMonitoringDto) {
     return 'This action adds a new monitoring';
