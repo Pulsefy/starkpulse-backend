@@ -51,6 +51,7 @@ import { UsageBillingModule } from './usage-billing/usage-billing.module';
 import { RedisModule } from './redis/redis.module';
 import { CacheModule } from './common/cache/cache.module';
 import { CacheMiddleware } from './common/middleware/cache.middleware';
+import { SecretsModule } from './secrets/secrets.module';
 
 @Module({
   imports: [
@@ -85,7 +86,7 @@ import { CacheMiddleware } from './common/middleware/cache.middleware';
     RateLimitModule.forRoot(),
     CacheWarmupModule,
     EncryptionModule, 
-    ApiSecurityModule, UsageBillingModule, RedisModule, 
+    ApiSecurityModule, UsageBillingModule, RedisModule, SecretsModule, 
   ],
   providers: [
     {
