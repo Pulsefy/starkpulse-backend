@@ -13,7 +13,8 @@ export class BackupService {
   private readonly logger = new Logger(BackupService.name);
   private readonly backupDir = path.resolve(__dirname, '../../backups');
   private readonly retentionDays = 7; // Default retention policy
-  private readonly encryptionKey = process.env.BACKUP_ENCRYPTION_KEY || 'default_key_32byteslong!'; // Should be 32 bytes for AES-256
+  private readonly encryptionKey =
+    process.env.BACKUP_ENCRYPTION_KEY || 'default_key_32byteslong!'; // Should be 32 bytes for AES-256
 
   constructor() {
     if (!fs.existsSync(this.backupDir)) {
@@ -75,7 +76,11 @@ export class BackupService {
 
   private async encryptFile(input: string, output: string): Promise<void> {
     return new Promise((resolve, reject) => {
-      const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(this.encryptionKey), Buffer.alloc(16, 0));
+      const cipher = crypto.createCipheriv(
+        'aes-256-cbc',
+        Buffer.from(this.encryptionKey),
+        Buffer.alloc(16, 0),
+      );
       const inp = fs.createReadStream(input);
       const out = fs.createWriteStream(output);
       inp.pipe(cipher).pipe(out).on('finish', resolve).on('error', reject);
@@ -83,24 +88,26 @@ export class BackupService {
   }
 
   private async verifyBackup(file: string): Promise<void> {
-    // Simple integrity check: try to decrypt and decompress
-    // (In production, use checksums/hashes and more robust verification)
     try {
-      // Decrypt
-      const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(this.encryptionKey), Buffer.alloc(16, 0));
+      const decipher = crypto.createDecipheriv(
+        'aes-256-cbc',
+        Buffer.from(this.encryptionKey),
+        Buffer.alloc(16, 0),
+      );
       const inp = fs.createReadStream(file);
       const tempDecrypted = file.replace('.enc', '.tmp');
       const out = fs.createWriteStream(tempDecrypted);
-      await new Promise((resolve, reject) => {
+      await new Promise<void>((resolve, reject) => {
         inp.pipe(decipher).pipe(out).on('finish', resolve).on('error', reject);
       });
-      // Decompress
+
       const gunzip = zlib.createGunzip();
       const inp2 = fs.createReadStream(tempDecrypted);
       const out2 = fs.createWriteStream(tempDecrypted + '.out');
-      await new Promise((resolve, reject) => {
+      await new Promise<void>((resolve, reject) => {
         inp2.pipe(gunzip).pipe(out2).on('finish', resolve).on('error', reject);
       });
+
       fs.unlinkSync(tempDecrypted);
       fs.unlinkSync(tempDecrypted + '.out');
     } catch (err) {
@@ -122,6 +129,4 @@ export class BackupService {
       }
     }
   }
-
-  // Add more backup/restore methods as needed
 }

@@ -1,10 +1,9 @@
 import { Injectable, Logger } from "@nestjs/common"
 import type { Repository } from "typeorm"
 import { type SecurityEvent, SecurityEventType } from "../common/security/entities/security-event.entity"
-import type { ThreatType } from "../common/security/entities/security-threat.entity"
-import { ThreatIntelligence } from "./threat-intelligence.entity"
+import type { ThreatIntelligence, ThreatType } from "./threat-intelligence.entity"
 
-export interface ThreatAnalysisResult {entity
+export interface ThreatAnalysisResult {
   isThreat: boolean
   riskScore: number
   reasons: string[]
@@ -15,7 +14,6 @@ export interface ThreatAnalysisResult {entity
 export class ThreatDetectionService {
   private readonly logger = new Logger(ThreatDetectionService.name)
 
-  // Threat detection rules and patterns
   private readonly suspiciousPatterns = {
     sqlInjection:
       /(\b(union|select|insert|update|delete|drop|create|alter)\b.*\b(from|where|order|group)\b)|('.*'.*=.*')|(\d+.*=.*\d+)/i,
@@ -51,7 +49,6 @@ export class ThreatDetectionService {
     const recommendations: string[] = []
     let riskScore = 0
 
-    // Base risk score from event type
     const baseRisk = this.riskFactors[event.eventType] || 0.1
     riskScore += baseRisk
 
@@ -59,7 +56,6 @@ export class ThreatDetectionService {
       reasons.push(`High-risk event type: ${event.eventType}`)
     }
 
-    // Check against threat intelligence
     const threatIntelMatch = await this.checkThreatIntelligence(event)
     if (threatIntelMatch) {
       riskScore += 0.4
@@ -67,7 +63,6 @@ export class ThreatDetectionService {
       recommendations.push("Block source IP immediately")
     }
 
-    // Pattern-based detection
     const patternMatch = this.detectSuspiciousPatterns(event)
     if (patternMatch.detected) {
       riskScore += 0.3
@@ -75,33 +70,27 @@ export class ThreatDetectionService {
       recommendations.push("Investigate request payload")
     }
 
-    // Behavioral analysis
     const behaviorAnalysis = await this.analyzeBehavior(event)
     riskScore += behaviorAnalysis.riskIncrease
     reasons.push(...behaviorAnalysis.reasons)
     recommendations.push(...behaviorAnalysis.recommendations)
 
-    // Frequency analysis
     const frequencyAnalysis = await this.analyzeFrequency(event)
     riskScore += frequencyAnalysis.riskIncrease
     reasons.push(...frequencyAnalysis.reasons)
     recommendations.push(...frequencyAnalysis.recommendations)
 
-    // Geolocation analysis
     const geoAnalysis = await this.analyzeGeolocation(event)
     riskScore += geoAnalysis.riskIncrease
     reasons.push(...geoAnalysis.reasons)
     recommendations.push(...geoAnalysis.recommendations)
 
-    // Cap risk score at 1.0
     riskScore = Math.min(riskScore, 1.0)
-
     const isThreat = riskScore > 0.5
 
     this.logger.debug(`Threat analysis for event ${event.id}: Risk Score ${riskScore}, Is Threat: ${isThreat}`)
 
     return {
-      entity: event,
       isThreat,
       riskScore,
       reasons,
@@ -112,37 +101,25 @@ export class ThreatDetectionService {
   private async checkThreatIntelligence(event: SecurityEvent): Promise<ThreatIntelligence | null> {
     const indicators: string[] = []
 
-    if (event.sourceIp) {
-      indicators.push(event.sourceIp)
-    }
+    if (event.sourceIp) indicators.push(event.sourceIp)
+    if (event.metadata?.payload) indicators.push(event.metadata.payload)
+    if (indicators.length === 0) return null
 
-    if (event.metadata?.payload) {
-      indicators.push(event.metadata.payload)
-    }
-
-    if (indicators.length === 0) {
-      return null
-    }
-
-    const threatMatch = await this.threatIntelligenceRepository.findOne({
+    return this.threatIntelligenceRepository.findOne({
       where: {
-        indicator: indicators[0], // Simplified - in production, check all indicators
+        indicator: indicators[0],
         isActive: true,
       },
     })
-
-    return threatMatch
   }
 
   private detectSuspiciousPatterns(event: SecurityEvent): { detected: boolean; pattern?: string } {
     const payload = event.metadata?.payload || event.description
-
     for (const [patternName, regex] of Object.entries(this.suspiciousPatterns)) {
       if (regex.test(payload)) {
         return { detected: true, pattern: patternName }
       }
     }
-
     return { detected: false }
   }
 
@@ -155,7 +132,6 @@ export class ThreatDetectionService {
     const recommendations: string[] = []
     let riskIncrease = 0
 
-    // Check for unusual time patterns
     const hour = event.createdAt.getHours()
     if (hour < 6 || hour > 22) {
       riskIncrease += 0.1
@@ -163,20 +139,18 @@ export class ThreatDetectionService {
       recommendations.push("Verify user identity")
     }
 
-    // Check for privilege escalation attempts
     if (event.eventType === SecurityEventType.PRIVILEGE_ESCALATION) {
       riskIncrease += 0.3
       reasons.push("Privilege escalation attempt detected")
       recommendations.push("Review user permissions immediately")
     }
 
-    // Check for multiple failed attempts
     if (event.eventType === SecurityEventType.LOGIN_FAILURE && event.userId) {
       const recentFailures = await this.securityEventRepository.count({
         where: {
           userId: event.userId,
           eventType: SecurityEventType.LOGIN_FAILURE,
-          createdAt: new Date(Date.now() - 15 * 60 * 1000), // Last 15 minutes
+          createdAt: new Date(Date.now() - 15 * 60 * 1000),
         },
       })
 
@@ -199,15 +173,12 @@ export class ThreatDetectionService {
     const recommendations: string[] = []
     let riskIncrease = 0
 
-    if (!event.sourceIp) {
-      return { riskIncrease, reasons, recommendations }
-    }
+    if (!event.sourceIp) return { riskIncrease, reasons, recommendations }
 
-    // Check request frequency from same IP
     const recentEvents = await this.securityEventRepository.count({
       where: {
         sourceIp: event.sourceIp,
-        createdAt: new Date(Date.now() - 5 * 60 * 1000), // Last 5 minutes
+        createdAt: new Date(Date.now() - 5 * 60 * 1000),
       },
     })
 
@@ -233,14 +204,11 @@ export class ThreatDetectionService {
     const recommendations: string[] = []
     let riskIncrease = 0
 
-    // Simplified geolocation analysis
-    // In production, you would integrate with a geolocation service
     if (event.sourceIp && event.userId) {
-      // Check for impossible travel (simplified)
       const recentUserEvents = await this.securityEventRepository.find({
         where: {
           userId: event.userId,
-          createdAt: new Date(Date.now() - 60 * 60 * 1000), // Last hour
+          createdAt: new Date(Date.now() - 60 * 60 * 1000),
         },
         order: {
           createdAt: "DESC",
@@ -274,7 +242,7 @@ export class ThreatDetectionService {
       await this.threatIntelligenceRepository.save(
         this.threatIntelligenceRepository.create({
           ...indicator,
-          threatType: indicator.threatType as any
+          threatType: indicator.threatType as any,
         })
       )
     }

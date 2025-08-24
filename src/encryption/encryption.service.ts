@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { KeyManagementService } from './key-management.service';
-import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
+import { createCipheriv, createDecipheriv } from 'crypto';
 
 @Injectable()
 export class EncryptionService {
@@ -18,10 +18,13 @@ export class EncryptionService {
       const cipher = createCipheriv(algorithm, key, iv);
       let encrypted = cipher.update(text, 'utf8', 'hex');
       encrypted += cipher.final('hex');
-      const authTag = cipher.getAuthTag();
 
-      // Return IV, encrypted data, and authTag for decryption
-      return `${iv.toString('hex')}:${encrypted}:${authTag.toString('hex')}`;
+      let authTag: Buffer | null = null;
+      if (algorithm.toLowerCase().includes('gcm') && 'getAuthTag' in cipher) {
+        authTag = (cipher as any).getAuthTag();
+      }
+
+      return `${iv.toString('hex')}:${encrypted}:${authTag ? authTag.toString('hex') : ''}`;
     } catch (error) {
       this.logger.error(`Encryption failed: ${error.message}`, error.stack);
       throw new Error('Failed to encrypt data.');
@@ -35,38 +38,36 @@ export class EncryptionService {
       if (parts.length !== 3) {
         throw new Error('Invalid encrypted data format.');
       }
+
       const iv = Buffer.from(parts[0], 'hex');
       const encrypted = parts[1];
-      const authTag = Buffer.from(parts[2], 'hex');
+      const authTagHex = parts[2];
+      const authTag = authTagHex ? Buffer.from(authTagHex, 'hex') : null;
 
       const key = this.keyManagementService.getCurrentKey();
       const algorithm = this.keyManagementService.getAlgorithm();
 
       const decipher = createDecipheriv(algorithm, key, iv);
-      decipher.setAuthTag(authTag);
+      if (algorithm.toLowerCase().includes('gcm') && authTag) {
+        (decipher as any).setAuthTag(authTag);
+      }
 
       let decrypted = decipher.update(encrypted, 'hex', 'utf8');
       decrypted += decipher.final('utf8');
       return decrypted;
     } catch (error) {
       this.logger.error(`Decryption failed: ${error.message}`, error.stack);
-      throw new Error(
-        'Failed to decrypt data. Key mismatch or corrupted data.',
-      );
+      throw new Error('Failed to decrypt data. Key mismatch or corrupted data.');
     }
   }
 
   async encryptFileContent(content: string): Promise<string> {
     this.logger.log('Simulating file content encryption...');
-    const encryptedContent = this.encrypt(content);
-
-    return encryptedContent;
+    return this.encrypt(content);
   }
 
-  // Simulates decrypting content from file storage
   async decryptFileContent(encryptedContent: string): Promise<string> {
     this.logger.log('Simulating file content decryption...');
-    const decryptedContent = this.decrypt(encryptedContent);
-    return decryptedContent;
+    return this.decrypt(encryptedContent);
   }
 }

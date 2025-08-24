@@ -58,6 +58,7 @@ export enum SecurityEventStatus {
 @Index(['ipAddress', 'createdAt'])
 @Index(['status', 'createdAt'])
 export class SecurityEvent {
+  [x: string]: any;
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
