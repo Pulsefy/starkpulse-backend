@@ -1,9 +1,10 @@
 import { Controller, Get, Post, Body, UseGuards } from '@nestjs/common';
 import { TokenService } from '../services/token.service';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { GetUser } from '../../auth/decorators/get-user.decorator';
+
 import { TransferTokenDto } from '../dto/transfer-token.dto';
 import { RewardContributionDto } from '../dto/reward-contribution.dto';
+import { GetUser } from 'src/auth/decorator/get-user.decorator';
 
 @Controller('governance/tokens')
 @UseGuards(JwtAuthGuard)

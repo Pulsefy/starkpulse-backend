@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { TokenContract } from '../contracts/token.contract';
+import { ec, stark } from 'starknet';
 
 @Injectable()
 export class BlockchainService {
@@ -43,5 +44,37 @@ export class BlockchainService {
       console.error('Error in getVotingPower:', error);
       return 0;
     }
+  }
+  
+  async verifySignature(walletAddress: string, message: string, signature: string): Promise<boolean> {
+    try {
+      // Convert message to hash
+      const messageHash = stark.hashMessage(message);
+      
+      // Parse signature
+      const { r, s } = this.parseSignature(signature);
+      
+      // Verify signature
+      return stark.verifySignature(
+        messageHash,
+        r,
+        s,
+        walletAddress
+      );
+    } catch (error) {
+      console.error('Signature verification error:', error);
+      return false;
+    }
+  }
+  
+  private parseSignature(signature: string): { r: string, s: string } {
+    // Remove '0x' prefix if present
+    const cleanSignature = signature.startsWith('0x') ? signature.slice(2) : signature;
+    
+    // Split signature into r and s components (each 64 characters)
+    const r = '0x' + cleanSignature.slice(0, 64);
+    const s = '0x' + cleanSignature.slice(64, 128);
+    
+    return { r, s };
   }
 }
