@@ -1,55 +1,39 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, Index, Unique } from 'typeorm';
-import { User } from '../../users/entities/user.entity';
+import { Entity, Column, PrimaryGeneratedColumn, ManyToOne, CreateDateColumn } from 'typeorm';
+import { User } from '../../users/users.entity';
 import { Proposal } from './proposal.entity';
 
-@Entity('votes')
-@Index(['proposalId', 'voterId'])
-@Unique(['proposalId', 'voterId'])
+export enum VoteType {
+  YES = 'yes',
+  NO = 'no',
+  ABSTAIN = 'abstain',
+}
+
+@Entity()
 export class Vote {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column('uuid')
-  proposalId: string;
+  @ManyToOne(() => User)
+  voter: User;
 
   @ManyToOne(() => Proposal, proposal => proposal.votes)
-  @JoinColumn({ name: 'proposalId' })
   proposal: Proposal;
-
-  @Column('uuid')
-  voterId: string;
-
-  @ManyToOne(() => User)
-  @JoinColumn({ name: 'voterId' })
-  voter: User;
 
   @Column({
     type: 'enum',
-    enum: ['FOR', 'AGAINST', 'ABSTAIN'],
+    enum: VoteType,
   })
-  voteType: string;
+  voteType: VoteType;
 
-  @Column('decimal', { precision: 18, scale: 8, default: 0 })
+  @Column('decimal', { precision: 36, scale: 18 })
   votingPower: number;
 
-  @Column('decimal', { precision: 18, scale: 8, default: 0 })
-  weightedVote: number;
-
-  @Column('text', { nullable: true })
+  @Column({ nullable: true })
   reason: string;
 
-  @Column('jsonb', { nullable: true })
-  metadata: Record<string, any>;
-
-  @Column('boolean', { default: false })
-  isDelegated: boolean;
-
-  @Column('uuid', { nullable: true })
-  delegatedFrom: string;
+  @Column({ nullable: true })
+  transactionHash: string;
 
   @CreateDateColumn()
   createdAt: Date;
-
-  @UpdateDateColumn()
-  updatedAt: Date;
 }

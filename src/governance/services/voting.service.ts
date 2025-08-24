@@ -1,130 +1,151 @@
-import { Injectable, BadRequestException, ConflictException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Vote } from '../entities/vote.entity';
-import { Proposal } from '../entities/proposal.entity';
-import { GovernanceToken } from '../entities/governance-token.entity';
-import { IVotingService } from '../interfaces/governance.interface';
-import { CastVoteDto } from '../dto/proposal.dto';
+import { Vote, VoteType } from '../entities/vote.entity';
+import { Proposal, ProposalStatus } from '../entities/proposal.entity';
+import { CreateVoteDto } from '../dto/create-vote.dto';
+import { TokenService } from './token.service';
 
 @Injectable()
-export class VotingService implements IVotingService {
+export class VotingService {
   constructor(
     @InjectRepository(Vote)
-    private readonly voteRepository: Repository<Vote>,
+    private voteRepository: Repository<Vote>,
     @InjectRepository(Proposal)
-    private readonly proposalRepository: Repository<Proposal>,
-    @InjectRepository(GovernanceToken)
-    private readonly tokenRepository: Repository<GovernanceToken>,
+    private proposalRepository: Repository<Proposal>,
+    private tokenService: TokenService,
   ) {}
 
-  async castVote(voterId: string, dto: CastVoteDto): Promise<Vote> {
+  async castVote(createVoteDto: CreateVoteDto, userId: string) {
+    const { proposalId, voteType, reason } = createVoteDto;
+    
     // Check if proposal exists and is active
     const proposal = await this.proposalRepository.findOne({
-      where: { id: dto.proposalId }
+      where: { id: proposalId },
     });
-
+    
     if (!proposal) {
-      throw new BadRequestException('Proposal not found');
+      throw new NotFoundException(`Proposal with ID ${proposalId} not found`);
     }
-
-    if (proposal.status !== 'ACTIVE') {
-      throw new BadRequestException('Proposal is not active for voting');
+    
+    if (proposal.status !== ProposalStatus.ACTIVE) {
+      throw new BadRequestException('Voting is only allowed on active proposals');
     }
-
-    const now = new Date();
-    if (now < proposal.votingStartsAt || now > proposal.votingEndsAt) {
-      throw new BadRequestException('Voting period has ended or not started');
+    
+    if (new Date() > proposal.endTime || new Date() < proposal.startTime) {
+      throw new BadRequestException('Voting is not allowed outside the voting period');
     }
-
+    
     // Check if user has already voted
     const existingVote = await this.voteRepository.findOne({
-      where: { proposalId: dto.proposalId, voterId }
+      where: {
+        voter: { id: userId },
+        proposal: { id: proposalId },
+      },
     });
-
+    
     if (existingVote) {
-      throw new ConflictException('User has already voted on this proposal');
+      throw new BadRequestException('User has already voted on this proposal');
     }
-
-    // Calculate voting power
-    const votingPower = await this.calculateVotingPower(voterId);
-
+    
+    // Get user's voting power
+    const votingPower = await this.getUserVotingPower(userId);
+    
     if (votingPower <= 0) {
       throw new BadRequestException('User has no voting power');
     }
-
+    
     // Create and save vote
     const vote = this.voteRepository.create({
-      ...dto,
-      voterId,
+      voter: { id: userId },
+      proposal: { id: proposalId },
+      voteType,
       votingPower,
-      weightedVote: votingPower,
+      reason,
     });
-
+    
     const savedVote = await this.voteRepository.save(vote);
-
+    
     // Update proposal vote counts
-    await this.updateProposalVoteCounts(dto.proposalId);
-
+    await this.updateProposalVoteCounts(proposalId);
+    
     return savedVote;
   }
 
-  async getVote(proposalId: string, voterId: string): Promise<Vote> {
-    return await this.voteRepository.findOne({
-      where: { proposalId, voterId },
-      relations: ['voter', 'proposal'],
+  async getUserVotes(userId: string) {
+    return this.voteRepository.find({
+      where: { voter: { id: userId } },
+      relations: ['proposal'],
+      order: { createdAt: 'DESC' },
     });
   }
 
-  async getVotesForProposal(proposalId: string): Promise<Vote[]> {
-    return await this.voteRepository.find({
-      where: { proposalId },
+  async getProposalVotes(proposalId: string) {
+    return this.voteRepository.find({
+      where: { proposal: { id: proposalId } },
       relations: ['voter'],
       order: { createdAt: 'DESC' },
     });
   }
 
-  async calculateVotingPower(userId: string): Promise<number> {
-    const token = await this.tokenRepository.findOne({
-      where: { userId, tokenType: 'GOVERNANCE' }
-    });
-
-    if (!token) {
-      return 0;
-    }
-
-    // Voting power = own tokens + delegated tokens
-    return token.votingPower + token.delegatedPower;
+  async getUserVotingPower(userId: string): Promise<number> {
+    // Get user's token balance and staked amount
+    const tokenBalance = await this.tokenService.getUserTokenBalance(userId);
+    const stakedAmount = await this.tokenService.getUserStakedAmount(userId);
+    const delegatedPower = await this.tokenService.getUserDelegatedVotingPower(userId);
+    
+    // Calculate voting power based on token holdings and staked amount
+    // Staked tokens typically have higher voting power
+    const stakingMultiplier = 2; // Staked tokens count double for voting power
+    
+    return tokenBalance + (stakedAmount * stakingMultiplier) + delegatedPower;
   }
 
-  async updateProposalVoteCounts(proposalId: string): Promise<void> {
+  private async updateProposalVoteCounts(proposalId: string) {
     const votes = await this.voteRepository.find({
-      where: { proposalId }
+      where: { proposal: { id: proposalId } },
     });
-
-    let votesFor = 0;
-    let votesAgainst = 0;
-    let votesAbstain = 0;
-
+    
+    let yesVotes = 0;
+    let noVotes = 0;
+    let abstainVotes = 0;
+    
     votes.forEach(vote => {
       switch (vote.voteType) {
-        case 'FOR':
-          votesFor += vote.weightedVote;
+        case VoteType.YES:
+          yesVotes += Number(vote.votingPower);
           break;
-        case 'AGAINST':
-          votesAgainst += vote.weightedVote;
+        case VoteType.NO:
+          noVotes += Number(vote.votingPower);
           break;
-        case 'ABSTAIN':
-          votesAbstain += vote.weightedVote;
+        case VoteType.ABSTAIN:
+          abstainVotes += Number(vote.votingPower);
           break;
       }
     });
-
+    
     await this.proposalRepository.update(proposalId, {
-      votesFor,
-      votesAgainst,
-      votesAbstain,
-      totalVotes: votesFor + votesAgainst + votesAbstain,
+      yesVotes,
+      noVotes,
+      abstainVotes,
     });
+  }
+
+  async getTotalVotesCount() {
+    return this.voteRepository.count();
+  }
+
+  async getParticipationRate() {
+    // This is a simplified calculation
+    // In a real system, you would compare unique voters to total token holders
+    const totalVoters = await this.voteRepository
+      .createQueryBuilder('vote')
+      .select('vote.voter')
+      .distinct(true)
+      .getCount();
+    
+    const totalUsers = 100; // Placeholder - would come from user service
+    
+    return totalUsers > 0 ? totalVoters / totalUsers : 0;
   }
 }

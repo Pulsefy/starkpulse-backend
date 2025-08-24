@@ -1,3 +1,4 @@
+
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule } from '../config/config.module';
@@ -9,12 +10,16 @@ import { WalletAuthController } from './controllers/wallet-auth.controller';
 import { WalletAuthGuard } from './guards/wallet-auth.guard';
 import { ConfigService } from '../config/config.service';
 import { RedisModule } from '../common/module/redis/redis.module';
+import { TokenAuthStrategy } from './strategies/token-auth.strategy';
+import { TokenAuthController } from './controllers/token-auth.controller';
+import { BlockchainModule } from '../blockchain/blockchain.module';
 
 @Module({
   imports: [
     ConfigModule,
     UsersModule,
     RedisModule,
+    BlockchainModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
@@ -24,8 +29,8 @@ import { RedisModule } from '../common/module/redis/redis.module';
       inject: [ConfigService],
     }),
   ],
-  controllers: [AuthController, WalletAuthController],
-  providers: [AuthService, WalletAuthService, WalletAuthGuard],
+  controllers: [AuthController, WalletAuthController, TokenAuthController],
+  providers: [AuthService, WalletAuthService, WalletAuthGuard, TokenAuthStrategy],
   exports: [AuthService, WalletAuthService, WalletAuthGuard],
 })
 export class AuthModule {}

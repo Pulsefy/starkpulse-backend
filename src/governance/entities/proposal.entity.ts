@@ -1,6 +1,34 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, OneToMany, Index } from 'typeorm';
+import { 
+  Entity, 
+  PrimaryGeneratedColumn, 
+  Column, 
+  CreateDateColumn, 
+  UpdateDateColumn, 
+  ManyToOne, 
+  JoinColumn, 
+  OneToMany, 
+  Index 
+} from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { Vote } from './vote.entity';
+
+export enum ProposalStatus {
+  DRAFT = 'DRAFT',
+  ACTIVE = 'ACTIVE',
+  PASSED = 'PASSED',
+  REJECTED = 'REJECTED',
+  EXPIRED = 'EXPIRED',
+  EXECUTED = 'EXECUTED',
+  CANCELED = 'CANCELED',
+}
+
+export enum ProposalType {
+  FEATURE = 'FEATURE',
+  PARAMETER = 'PARAMETER',
+  TREASURY = 'TREASURY',
+  UPGRADE = 'UPGRADE',
+  COMMUNITY = 'COMMUNITY',
+}
 
 @Entity('proposals')
 @Index(['status', 'createdAt'])
@@ -15,6 +43,9 @@ export class Proposal {
   @Column('text')
   description: string;
 
+  @Column('text', { nullable: true })
+  content: string; // ✅ kept from first version (proposal body)
+
   @Column('uuid')
   proposerId: string;
 
@@ -24,18 +55,19 @@ export class Proposal {
 
   @Column({
     type: 'enum',
-    enum: ['DRAFT', 'ACTIVE', 'PASSED', 'REJECTED', 'EXPIRED', 'EXECUTED'],
-    default: 'DRAFT'
+    enum: ProposalStatus,
+    default: ProposalStatus.DRAFT,
   })
-  status: string;
+  status: ProposalStatus;
 
   @Column({
     type: 'enum',
-    enum: ['FEATURE', 'PARAMETER', 'TREASURY', 'UPGRADE', 'COMMUNITY'],
-    default: 'FEATURE'
+    enum: ProposalType,
+    default: ProposalType.FEATURE,
   })
-  type: string;
+  type: ProposalType;
 
+  // ✅ voting counts with decimals
   @Column('decimal', { precision: 18, scale: 8, default: 0 })
   votesFor: number;
 
@@ -63,11 +95,20 @@ export class Proposal {
   @Column('timestamp', { nullable: true })
   executedAt: Date;
 
+  @Column({ default: false })
+  isExecuted: boolean; // ✅ kept from first version
+
   @Column('jsonb', { nullable: true })
   metadata: Record<string, any>;
 
   @Column('text', { nullable: true })
   executionData: string;
+
+  @Column({ nullable: true })
+  transactionHash: string; // ✅ kept from first version
+
+  @Column({ nullable: true })
+  contractAddress: string; // ✅ kept from first version
 
   @OneToMany(() => Vote, vote => vote.proposal)
   votes: Vote[];
